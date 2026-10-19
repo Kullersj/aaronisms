@@ -23,6 +23,10 @@ pnpm format         # prettier
 
 For `pnpm e2e` on a fresh machine, install a browser once with `pnpm --filter @aaronisms/e2e exec playwright install chromium`. Set `BASE_URL` to test an already-running deployment, or `PW_CHROMIUM_PATH` to use an existing Chromium binary.
 
+## Changesets
+
+Every PR includes a changeset describing what changed (CI checks this). Run `pnpm changeset`, pick the packages you touched and the bump type, and commit the generated file in `.changeset/`. When changes land on `main`, the Release workflow opens a "Version packages" PR that bumps versions and writes each package's `CHANGELOG.md`. All packages are private, so nothing is published to npm.
+
 ## Packages
 
 | Package             | Path              | Purpose                                                        |
