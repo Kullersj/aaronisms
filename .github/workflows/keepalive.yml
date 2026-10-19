@@ -1,0 +1,28 @@
+name: Supabase keep-alive
+
+# A free Supabase project pauses after about a week without database activity. This reads one row
+# through the public API with the anon key every few days, which counts as activity.
+on:
+  schedule:
+    - cron: '17 6 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+    steps:
+      - name: Query the hosted project
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::notice::SUPABASE_URL or SUPABASE_ANON_KEY is not set; skipping keep-alive."
+            exit 0
+          fi
+          curl --fail-with-body --silent --show-error --retry 3 --retry-delay 10 \
+            --header "apikey: $SUPABASE_ANON_KEY" \
+            --header "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "${SUPABASE_URL%/}/rest/v1/entries?select=id&limit=1"
+          echo
+          echo "Supabase responded."

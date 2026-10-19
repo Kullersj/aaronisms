@@ -1,0 +1,51 @@
+name: Database backup
+
+# A daily logical dump (schema and data) of the hosted database, kept as a workflow artifact.
+# On a private repository, artifacts are visible only to people with access to the repository.
+on:
+  schedule:
+    - cron: '23 5 * * *'
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - name: Check for the database URL
+        id: config
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::notice::SUPABASE_DB_URL is not set; skipping backup."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install the PostgreSQL 17 client
+        if: steps.config.outputs.enabled
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+      # The public schema only: the auth, storage and other Supabase-managed schemas are rebuilt
+      # by Supabase itself, and the images in Storage are not in the database (the rows keep their
+      # paths). The data file loads into a project whose migrations have been applied; the schema
+      # file is a reference copy for the same purpose.
+      - name: Dump
+        if: steps.config.outputs.enabled
+        run: |
+          set -o pipefail
+          day="$(date -u +%Y-%m-%d)"
+          pg_dump "$SUPABASE_DB_URL" --schema=public --no-owner --data-only | gzip > "aaronisms-data-$day.sql.gz"
+          pg_dump "$SUPABASE_DB_URL" --schema=public --no-owner --no-privileges --schema-only \
+            | sed '/^CREATE SCHEMA public;$/d' | gzip > "aaronisms-schema-$day.sql.gz"
+          ls -lh aaronisms-*.sql.gz
+      - uses: actions/upload-artifact@v4
+        if: steps.config.outputs.enabled
+        with:
+          name: database-backup
+          path: aaronisms-*.sql.gz
+          retention-days: 30
+          if-no-files-found: error

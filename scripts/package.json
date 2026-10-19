@@ -8,7 +8,8 @@
     "import:form-responses": "tsx src/import-form-responses.ts",
     "lint": "eslint .",
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check:rls": "tsx src/check-rls.ts"
   },
   "dependencies": {
     "@aaronisms/db": "workspace:*",
