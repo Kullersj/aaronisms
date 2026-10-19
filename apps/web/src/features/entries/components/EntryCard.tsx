@@ -13,9 +13,16 @@ export type EntryCardProps = {
   headingLevel?: 'h1' | 'h2' | 'h3';
   /** Link the date (or, for undated entries, an icon) to the entry's permalink. */
   linked?: boolean;
+  /** Words to mark in the lines, for search results. */
+  highlight?: string[];
 };
 
-export function EntryCard({ entry, headingLevel = 'h3', linked = true }: EntryCardProps) {
+export function EntryCard({
+  entry,
+  headingLevel = 'h3',
+  linked = true,
+  highlight,
+}: EntryCardProps) {
   const Heading = headingLevel;
   const href = `/a/${entry.slug}`;
   const date = entry.saidOn ? formatEntryDate(entry.saidOn) : null;
@@ -52,7 +59,7 @@ export function EntryCard({ entry, headingLevel = 'h3', linked = true }: EntryCa
       </CardHeader>
       <CardContent className="pt-3 pb-5 text-lg leading-relaxed">
         {entry.lines.map((line) => (
-          <DialogueLine key={line.id} line={line} />
+          <DialogueLine key={line.id} line={line} highlight={highlight} />
         ))}
         {entry.imagePath ? (
           <Image

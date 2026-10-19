@@ -1,6 +1,6 @@
 # Aaronisms
 
-A collection of things said. A Next.js monorepo (pnpm workspaces + Turborepo) backed by Supabase. See the migration plan for the full design; this repo is at Phase 3 (submissions and moderation).
+A collection of things said. A Next.js monorepo (pnpm workspaces + Turborepo) backed by Supabase. See the migration plan for the full design; this repo is at Phase 4 (search, speakers, random and share images).
 
 ## Setup
 
@@ -70,6 +70,16 @@ pnpm --filter @aaronisms/email dev     # http://localhost:3001
 `EMAIL_TRANSPORT=resend` (the default, needs `RESEND_API_KEY` and a verified `EMAIL_FROM` domain) is for production. `EMAIL_TRANSPORT=smtp` sends real SMTP to `EMAIL_SMTP_URL` (default `smtp://127.0.0.1:54325`, the local Mailpit), where you can read the messages in its web UI or API.
 
 **Tests use the local stack.** The unit tests in `apps/web`, `packages/email`, `packages/db` and `scripts` talk to the real local Supabase and Mailpit through a shared vitest global setup (see Database below), so they need Docker running. The e2e tests also need `MODERATOR_EMAILS` (two or more addresses), `SITE_URL` and the settings above in their environment; see `.github/workflows/e2e.yml`.
+
+## Search, speakers, random and share images
+
+- **`/search?q=`** runs the `search_entries` database function (full-text on speaker names and lines, with a trigram fallback so typos still match), then loads the matching entries with their lines. Results are ranked, matches are marked with `<mark>`, and **speaker chips** filter them. The chips are plain links (`&speaker=<slug>`), and the header's `SearchBox` is a plain GET form, so search works without JavaScript. With JavaScript, typing on the results page updates the URL after a 300 ms pause. Search is not cached (the query is arbitrary visitor input). Note the trigram fallback ignores websearch operators, so `-word` does not exclude fuzzy matches.
+- **`/speakers`** lists speakers who have at least one line in a published entry, with line counts. **`/speakers/<slug>`** shows every published entry that speaker is in. Speaker names on cards link there, and a speaker with nothing published is a 404. Both read through the anon client, so RLS keeps pending and rejected lines out of the counts.
+- **`/random`** is a route handler that redirects (307, `Cache-Control: no-store`) to a published entry chosen by `random_published_entry_slug()`, or to `/` when nothing is published. The header's Random link does not prefetch it.
+- **Year jump.** On phones the year list is a single scrolling row pinned to the top, and the sticky year headings sit just below it.
+- **Share images.** `/a/<slug>/opengraph-image` (via `next/og`) renders the date, speakers and lines, trimmed to about 260 characters and four lines, in the header's dark style; unpublished or unknown entries get a 404. `/opengraph-image` is the default card. Next adds a content hash to these URLs, so read them from the page's `og:image` tag. They still carry the `X-Robots-Tag: noindex` header from `next.config.ts`; `tests/seo.spec.ts` checks it.
+
+The query tests (`apps/web/tests/public-queries.test.ts`) insert their own made-up rows into the real local database and check what the anon role can and cannot see; there are no mocks. The Playwright specs for these routes are in `packages/e2e/tests/public/` (search, speakers, random, og), with page objects in `packages/e2e/pages/`.
 
 ## Changesets
 
