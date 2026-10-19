@@ -35,6 +35,7 @@ describe.skipIf(!configured)('row-level security (anon)', () => {
       slug: `${PREFIX}-${status}`,
       said_on: '2026-01-01',
       status,
+      published_at: status === 'published' ? '2026-01-02T00:00:00Z' : null,
       submitter_ip: '203.0.113.9',
     }));
     expect((await admin.from('entries').insert(entries)).error).toBeNull();
@@ -89,6 +90,7 @@ describe.skipIf(!configured)('row-level security (anon)', () => {
 
   it('cannot read private entry columns', async () => {
     expect((await anon.from('entries').select('submitter_ip')).error).not.toBeNull();
+    expect((await anon.from('entries').select('submitted_by')).error).not.toBeNull();
     expect(
       (await anon.from('entries').select('decision_note, reviewed_by_email')).error,
     ).not.toBeNull();
@@ -194,5 +196,10 @@ describe.skipIf(!configured)('row-level security (anon)', () => {
       .from(BUCKET)
       .upload(`${PREFIX}/anon.png`, new Uint8Array([1]));
     expect(upload.error).not.toBeNull();
+  });
+
+  it('cannot list bucket objects', async () => {
+    const listed = await anon.storage.from(BUCKET).list(PREFIX);
+    expect(listed.error !== null || listed.data?.length === 0).toBe(true);
   });
 });

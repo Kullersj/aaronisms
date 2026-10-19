@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { isGroupLabel, parseGoogleSitesPage, parseImages } from './parse';
 
 const fixture = (name: string) =>
@@ -118,8 +118,17 @@ describe('dated pages', () => {
     ]);
   });
 
-  it('fails loudly on an unreadable or impossible date', () => {
-    expect(() => parseGoogleSitesPage(dated('Someday'), 'modern')).toThrow(/date/i);
+  it('skips a section whose heading is not a date, with a warning', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const html = dated('Someday') + dated('January 5, 2020');
+    expect(parseGoogleSitesPage(html, 'modern').map((entry) => entry.saidOn)).toEqual([
+      '2020-01-05',
+    ]);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Someday'));
+    warn.mockRestore();
+  });
+
+  it('fails loudly on an impossible calendar date', () => {
     expect(() => parseGoogleSitesPage(dated('February 30, 2024'), 'modern')).toThrow(/calendar/);
   });
 
@@ -164,7 +173,20 @@ describe('college pages', () => {
 describe('parseImages', () => {
   it('lists image sources on a memes page with their section index', () => {
     expect(parseImages(fixture('memes.sample.html'))).toEqual([
-      { sectionIndex: 1, src: './memes.sample_files/meme.png' },
+      { sectionIndex: 1, order: 0, src: './memes.sample_files/meme.png' },
+    ]);
+  });
+
+  it('numbers images within their section and skips logos, icons and data URIs', () => {
+    const html =
+      section(
+        `<img src="https://lh3.googleusercontent.com/aaa"><img src="https://example.com/logo.png">` +
+          `<img src="data:image/gif;base64,R0lGOD"><img src="./Page_files/bbb">`,
+      ) + section('<img src="https://lh3.googleusercontent.com/ccc">');
+    expect(parseImages(html)).toEqual([
+      { sectionIndex: 0, order: 0, src: 'https://lh3.googleusercontent.com/aaa' },
+      { sectionIndex: 0, order: 1, src: './Page_files/bbb' },
+      { sectionIndex: 1, order: 0, src: 'https://lh3.googleusercontent.com/ccc' },
     ]);
   });
 });

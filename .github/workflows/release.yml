@@ -16,13 +16,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # The branch tip, not the triggering sha, so a queued run builds on the previous run's version commit.
+          ref: main
           ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
       - uses: jdx/mise-action@v2
       - run: pnpm install --frozen-lockfile
       # Applies pending changesets (bumps versions, writes CHANGELOGs) and commits straight to main.
-      # Pushes made with GITHUB_TOKEN don't trigger workflows, so this commit doesn't re-run Release.
+      # The deploy-key push re-triggers Release and CI; that Release run finds no changesets and exits.
       - run: pnpm version-packages
       - name: Commit version bumps
+        env:
+          HUSKY: '0'
         run: |
           if [ -z "$(git status --porcelain)" ]; then
             echo "No pending changesets."

@@ -1,4 +1,6 @@
 -- Public-read bucket for entry and meme images. Writes use the service role only.
+-- No select policy on storage.objects: public URLs serve without one, and a policy would let
+-- anon list() every object, including images of pending entries.
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
@@ -9,6 +11,3 @@ values (
   array['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']
 )
 on conflict (id) do nothing;
-
-create policy "Aaronism images are public" on storage.objects
-  for select to anon, authenticated using (bucket_id = 'aaronism-images');

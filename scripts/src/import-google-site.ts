@@ -94,7 +94,7 @@ async function main() {
         page: 'dont-let-your-memes-be-dreams',
         sectionIndex: meme.sectionIndex,
         saidOn: null,
-        order: index,
+        order: meme.order,
         src: meme.src,
       },
       entryContext(pages.memes),
@@ -147,14 +147,22 @@ async function writeToDatabase(
     check(await db.from('memes').delete().like('image_path', 'imported/%'), 'Reset memes');
   }
 
+  // An entry with no lines is left over from a failed run: delete it so this run recreates it.
+  // Anything with lines is kept, so a pending form submission that shares a slug is never deleted.
   const existing = new Set<string>();
+  const leftovers: string[] = [];
   for (const batch of chunk(slugs, 100)) {
     for (const row of check(
-      await db.from('entries').select('slug').in('slug', batch),
+      await db.from('entries').select('slug, status, entry_lines(count)').in('slug', batch),
       'Read slugs',
     ) ?? []) {
-      existing.add(row.slug);
+      const hasLines = (row.entry_lines[0]?.count ?? 0) > 0;
+      if (hasLines || row.status === 'rejected') existing.add(row.slug);
+      else leftovers.push(row.slug);
     }
+  }
+  for (const batch of chunk(leftovers, 100)) {
+    check(await db.from('entries').delete().in('slug', batch), 'Delete incomplete entries');
   }
   const fresh = plans.filter((plan) => !existing.has(plan.slug));
 
@@ -176,9 +184,8 @@ async function writeToDatabase(
     slug: plan.slug,
     said_on: plan.saidOn,
     era: plan.era,
-    status: 'published' as const,
+    status: 'pending' as const,
     image_path: uploads.get(plan.slug)?.path ?? null,
-    published_at: publishedAt,
   }));
   for (const batch of chunk(entryRows, 100))
     check(await db.from('entries').insert(batch), 'Insert entries');
@@ -195,6 +202,17 @@ async function writeToDatabase(
   );
   for (const batch of chunk(lineRows, 200))
     check(await db.from('entry_lines').insert(batch), 'Insert lines');
+
+  // Publish only once every line is in, so a failed run never leaves a half-published entry.
+  for (const batch of chunk([...entryIds.values()], 100)) {
+    check(
+      await db
+        .from('entries')
+        .update({ status: 'published', published_at: publishedAt })
+        .in('id', batch),
+      'Publish entries',
+    );
+  }
 
   let memesAdded = 0;
   const knownMemes = new Set(

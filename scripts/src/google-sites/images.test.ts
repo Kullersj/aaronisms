@@ -83,6 +83,12 @@ describe('findImage', () => {
     const found = await findImage(ref(1, './images/home-01.png'), { pageDir: root, manifest: [] });
     expect(found?.bytes.equals(PNG)).toBe(true);
   });
+
+  it('does not throw on a malformed percent escape in the src', async () => {
+    expect(
+      await findImage(ref(1, './images/100%.png'), { pageDir: root, manifest: [] }),
+    ).toBeNull();
+  });
 });
 
 describe('sniffImage', () => {
