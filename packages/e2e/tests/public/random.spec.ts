@@ -36,4 +36,24 @@ test.describe('random', () => {
     for (const slug of slugs) expect(SEED.publishedSlugs).toContain(slug);
     expect(slugs.size).toBeGreaterThan(1);
   });
+  test('the Random button keeps moving on with every press', async ({ page }) => {
+    await new FeedPage(page).goto();
+    const random = new SiteHeader(page).random;
+    const visited = new Set<string>();
+    for (let i = 0; i < 8; i++) {
+      const before = page.url();
+      // Each press must reach the server; a press the browser answers from memory times out here.
+      const response = page.waitForResponse((r) => new URL(r.url()).pathname === '/random');
+      await random.click();
+      await response;
+      // The server never picks the entry the visitor is already on.
+      await expect(page).not.toHaveURL(before);
+      await expect(page).toHaveURL(/\/a\/[^/]+$/);
+      await expect(new EntryPage(page).article).toBeVisible();
+      const slug = new URL(page.url()).pathname.replace('/a/', '');
+      expect(SEED.publishedSlugs).toContain(slug);
+      visited.add(slug);
+    }
+    expect(visited.size).toBeGreaterThan(1);
+  });
 });

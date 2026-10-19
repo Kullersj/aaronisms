@@ -28,10 +28,12 @@ export function SiteHeader() {
           <SiteNav items={NAV_ITEMS} />
           <div className="flex flex-wrap items-center gap-2">
             <SearchBox className="w-36 sm:w-48" />
-            {/* A route handler that redirects; never prefetch it, or the link would go stale. */}
-            <Link
+            {/*
+              A plain anchor, not <Link>: the client router remembers where /random redirected
+              the first time and replays it, so later presses never reach the server.
+            */}
+            <a
               href="/random"
-              prefetch={false}
               className={cn(
                 buttonVariants({ variant: 'ghost', size: 'sm' }),
                 'text-white hover:bg-white/10 hover:text-white',
@@ -39,7 +41,7 @@ export function SiteHeader() {
             >
               <Shuffle className="size-4" aria-hidden="true" />
               Random
-            </Link>
+            </a>
             <ThemeToggle />
             <Link
               href="/submit"

@@ -158,4 +158,14 @@ describe('entry queries (real database, anon role)', () => {
     }
     expect(picks.size).toBeGreaterThan(1);
   });
+
+  it('never picks the excluded entry while another is published', async () => {
+    for (let i = 0; i < 25; i++) {
+      const slug = await fetchRandomEntrySlug(entries.published.slug);
+      expect(slug).not.toBeNull();
+      expect(slug).not.toBe(entries.published.slug);
+      expect(slug).not.toBe(entries.pending.slug);
+      expect(slug).not.toBe(entries.rejected.slug);
+    }
+  });
 });
