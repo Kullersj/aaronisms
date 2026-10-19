@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { slugForEntry } from '@aaronisms/db/slug';
 import { parse } from 'csv-parse/sync';
@@ -26,19 +27,18 @@ Responses already on the site (same date and same lines) are skipped.
 
 Needs SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY unless --dry-run.`;
 
-const { values } = parseArgs({
-  options: {
-    csv: { type: 'string' },
-    'timestamp-col': { type: 'string', default: DEFAULT_COLUMNS.timestamp },
-    'who-col': { type: 'string', default: DEFAULT_COLUMNS.who },
-    'what-col': { type: 'string', default: DEFAULT_COLUMNS.what },
-    'name-col': { type: 'string', default: DEFAULT_COLUMNS.name },
-    'dry-run': { type: 'boolean', default: false },
-    help: { type: 'boolean', default: false },
-  },
-});
-
 async function main() {
+  const { values } = parseArgs({
+    options: {
+      csv: { type: 'string' },
+      'timestamp-col': { type: 'string', default: DEFAULT_COLUMNS.timestamp },
+      'who-col': { type: 'string', default: DEFAULT_COLUMNS.who },
+      'what-col': { type: 'string', default: DEFAULT_COLUMNS.what },
+      'name-col': { type: 'string', default: DEFAULT_COLUMNS.name },
+      'dry-run': { type: 'boolean', default: false },
+      help: { type: 'boolean', default: false },
+    },
+  });
   if (values.help || !values.csv) {
     console.log(USAGE);
     return;
@@ -73,7 +73,7 @@ async function main() {
   console.log(JSON.stringify({ rows: rows.length, unusable, ...result }, null, 2));
 }
 
-async function insertPending(db: Db, submissions: PendingSubmission[]) {
+export async function insertPending(db: Db, submissions: PendingSubmission[]) {
   const speakers = createSpeakerRegistry();
   const known = new Map(
     (check(await db.from('speakers').select('id, name'), 'Read speakers') ?? []).map((s) => [
@@ -157,7 +157,9 @@ async function insertPending(db: Db, submissions: PendingSubmission[]) {
   return { inserted, skippedAlreadyOnSite: duplicates };
 }
 
-main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exit(1);
-});
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  });
+}

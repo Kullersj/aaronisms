@@ -11,7 +11,9 @@
     },
     "lint": {},
     "typecheck": {},
-    "test": {},
+    "test": {
+      "cache": false
+    },
     "e2e": {
       "dependsOn": ["@aaronisms/web#build"],
       "cache": false,
