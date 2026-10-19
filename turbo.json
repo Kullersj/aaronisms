@@ -12,7 +12,17 @@
     },
     "lint": {},
     "typecheck": {},
+    "@aaronisms/web#typecheck": {
+      "dependsOn": ["@aaronisms/web#build"]
+    },
     "test": {
+      "passThroughEnv": [
+        "SUPABASE_URL",
+        "SUPABASE_ANON_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "MAILPIT_URL",
+        "EMAIL_SMTP_URL"
+      ],
       "cache": false
     },
     "e2e": {
@@ -21,10 +31,20 @@
       "passThroughEnv": [
         "NEXT_PUBLIC_SUPABASE_URL",
         "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+        "SUPABASE_URL",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "SITE_URL",
+        "MODERATOR_EMAILS",
+        "TURNSTILE_SECRET_KEY",
+        "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
+        "EMAIL_TRANSPORT",
+        "EMAIL_FROM",
+        "MAILPIT_URL",
         "BASE_URL",
         "CI",
         "PW_CHROMIUM_PATH",
-        "PLAYWRIGHT_BROWSERS_PATH"
+        "PLAYWRIGHT_BROWSERS_PATH",
+        "EMAIL_SMTP_URL"
       ]
     }
   }

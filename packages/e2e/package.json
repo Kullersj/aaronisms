@@ -10,7 +10,9 @@
   },
   "devDependencies": {
     "@aaronisms/config": "workspace:*",
+    "@aaronisms/db": "workspace:*",
     "@playwright/test": "catalog:",
+    "@supabase/supabase-js": "^2.118.0",
     "@types/node": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:"

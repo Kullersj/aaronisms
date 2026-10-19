@@ -35,7 +35,11 @@ const usesLocalSupabase = remotePatterns.some((p) =>
 );
 
 const nextConfig: NextConfig = {
-  transpilePackages: ['@aaronisms/ui'],
+  transpilePackages: ['@aaronisms/ui', '@aaronisms/email'],
+  experimental: {
+    // Submissions carry a photo of up to 5 MB, plus multipart overhead.
+    serverActions: { bodySizeLimit: '6mb' },
+  },
   images: {
     remotePatterns,
     // The optimizer refuses private addresses unless told otherwise; only needed for local Supabase.

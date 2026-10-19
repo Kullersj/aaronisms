@@ -97,6 +97,20 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"rate_limit_hits": {
+                  Row: {
+                    "bucket": string,"created_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "bucket": string,"created_at"?: string
+                  }
+                  Update: {
+                    "bucket"?: string,"created_at"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"speakers": {
                   Row: {
                     "id": string,"name": string,"slug": string
@@ -117,11 +131,64 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "random_published_entry_slug":
+            "apply_decision":
+{ Args: { "p_decision": string,"p_entry_id": string,"p_lines": Json,"p_note": string,"p_reviewer_email": string,"p_said_on": string }; Returns: undefined
+                           },
+"apply_entry_edits":
+{ Args: { "p_entry_id": string,"p_lines": Json,"p_said_on"?: string }; Returns: string
+                           },
+"consume_rate_limit":
+{ Args: { "p_bucket": string,"p_limit": number,"p_window_seconds": number }; Returns: boolean
+                           },
+"create_submission":
+{ Args: { "p_entry_id": string,"p_image_path"?: string,"p_ip"?: unknown,"p_lines": Json,"p_said_on": string,"p_submitted_by"?: string,"p_tokens": Json }; Returns: string
+                           },
+"decide_entry":
+{ Args: { "p_allowed_emails": (string)[],"p_decision": string,"p_lines"?: Json,"p_note"?: string,"p_said_on"?: string,"p_token_hash": string }; Returns: Database["public"]['CompositeTypes']["moderation_result"]
+                          SetofOptions: {
+        from: "*"
+        to: "moderation_result"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"decide_entry_as_admin":
+{ Args: { "p_admin_email": string,"p_decision": string,"p_entry_id": string,"p_lines"?: Json,"p_note"?: string,"p_said_on"?: string }; Returns: Database["public"]['CompositeTypes']["moderation_result"]
+                          SetofOptions: {
+        from: "*"
+        to: "moderation_result"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"entry_result":
+{ Args: { "p_entry_id": string,"p_outcome": string }; Returns: Database["public"]['CompositeTypes']["moderation_result"]
+                          SetofOptions: {
+        from: "*"
+        to: "moderation_result"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"entry_slug_for":
+{ Args: { "p_date": string }; Returns: string
+                           },
+"merge_speakers":
+{ Args: { "p_from": string,"p_into": string }; Returns: undefined
+                           },
+"moderation_token_state":
+{ Args: { "p_allowed_emails": (string)[],"p_token_hash": string }; Returns: Database["public"]['CompositeTypes']["moderation_result"]
+                          SetofOptions: {
+        from: "*"
+        to: "moderation_result"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"random_published_entry_slug":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
 "refresh_entry_search":
 { Args: { "target": string }; Returns: undefined
+                           },
+"replace_entry_content":
+{ Args: { "p_entry_id": string,"p_lines": Json,"p_said_on": string }; Returns: undefined
                            },
 "search_entries":
 { Args: { "q": string }; Returns: {
@@ -133,7 +200,9 @@ isOneToOne: false
             "entry_era": "modern"|"college","entry_status": "pending"|"published"|"rejected","line_kind": "line"|"stage"|"context"
           }
           CompositeTypes: {
-            [_ in never]: never
+            "moderation_result": {
+                        "outcome": string | null,"entry_id": string | null,"entry_slug": string | null,"status": Database["public"]['Enums']["entry_status"] | null,"reviewed_by_email": string | null,"decision_note": string | null
+                      }
           }
         }
 }

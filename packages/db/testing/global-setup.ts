@@ -62,4 +62,6 @@ export default function setup() {
   for (const [from, to] of Object.entries(KEYS)) {
     process.env[to] = status[from];
   }
+  // Mailpit (the stack's local inbox) for email tests; the SMTP port is fixed in config.toml.
+  if (status.MAILPIT_URL) process.env.MAILPIT_URL ??= status.MAILPIT_URL;
 }
