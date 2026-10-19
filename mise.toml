@@ -1,0 +1,17 @@
+[tools]
+node = "22"
+pnpm = "10.28.0"
+"npm:supabase" = "2.121.0"
+
+[tasks.setup]
+run = [
+  "pnpm install",
+  "pnpm --filter @aaronisms/db exec supabase start",
+  "pnpm db:types",
+]
+
+[tasks.dev]
+run = "pnpm turbo dev"
+
+[tasks.e2e]
+run = "pnpm --filter @aaronisms/e2e e2e"

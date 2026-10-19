@@ -102,3 +102,10 @@ dist
 
 # TernJS port file
 .tern-port
+
+# Project
+.turbo/
+playwright-report/
+test-results/
+.env*.local
+.vercel

@@ -1,0 +1,7 @@
+{
+  "extends": "@aaronisms/config/tsconfig/library.json",
+  "compilerOptions": {
+    "paths": { "@aaronisms/ui/*": ["./src/*"] }
+  },
+  "include": ["src"]
+}
