@@ -16,7 +16,7 @@
     "db:types": "pnpm --filter @aaronisms/db db:types",
     "prepare": "husky || true",
     "changeset": "changeset",
-    "version-packages": "changeset version"
+    "version-packages": "changeset version && prettier --write --log-level warn ."
   },
   "prettier": "@aaronisms/config/prettier",
   "devDependencies": {
