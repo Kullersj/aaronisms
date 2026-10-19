@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { EntryStatus } from '@aaronisms/db/schemas';
-import { formatEntryDate } from '@/features/entries/utils';
+import { formatEntryDate, formatStageDirection } from '@/features/entries/utils';
 import type { ReviewEntry } from '@/features/moderation/queries';
 
 const STATUS_LABELS: Record<EntryStatus, string> = {
@@ -20,7 +20,7 @@ export function EntryListItem({ entry }: { entry: ReviewEntry }) {
       </p>
       <p className="line-clamp-2">
         {speaker ? <strong className="font-semibold">{speaker}: </strong> : null}
-        {first?.text}
+        {first?.kind === 'stage' ? formatStageDirection(first.text) : first?.text}
       </p>
       <Link
         href={`/admin/entries/${entry.id}`}

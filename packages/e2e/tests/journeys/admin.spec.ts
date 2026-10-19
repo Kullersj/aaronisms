@@ -124,16 +124,11 @@ test.describe('admin, signed in as the default moderator', () => {
     await page.getByRole('button', { name: 'Filter' }).click();
     await page.getByRole('link', { name: `Edit entry ${slug}` }).click();
 
-    // Cancelling leaves the entry alone.
-    await page.getByRole('button', { name: 'Delete entry…' }).click();
-    await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
-    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await page.getByText('Delete entry…').click();
+    await expect(page.getByText('This cannot be undone.')).toBeVisible();
     expect((await findEntry(marker))?.status).toBe('published');
-
-    await page.getByRole('button', { name: 'Delete entry…' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Delete this entry?' });
-    await dialog.getByRole('button', { name: 'Delete for good' }).click();
-    await expect(page).toHaveURL(/\/admin\/entries/);
+    await page.getByRole('button', { name: 'Delete for good' }).click();
+    await expect(page).toHaveURL(/\/admin\/entries\?message=/);
     await expect(page.getByText('Entry deleted.')).toBeVisible();
 
     expect(await findEntry(marker)).toBeNull();

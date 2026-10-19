@@ -51,11 +51,24 @@ export async function getPendingEntries(): Promise<ReviewEntry[]> {
   return (data satisfies ReviewRow[]).map(toReviewEntry);
 }
 
+/** Rows per request; PostgREST caps a response at `max_rows` (1000), so larger reads are paged. */
+const PAGE_SIZE = 1000;
+
 /** Every entry whatever its status, newest first, for the admin. Service role: callers must authorise. */
 export async function getAllEntries(): Promise<ReviewEntry[]> {
-  const { data, error } = await createAdminClient().from('entries').select(REVIEW_COLUMNS);
-  if (error) throw new Error(`Could not load entries: ${error.message}`);
-  return (data satisfies ReviewRow[]).map(toReviewEntry).sort(compareEntries);
+  const rows: ReviewRow[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await createAdminClient()
+      .from('entries')
+      .select(REVIEW_COLUMNS)
+      .order('created_at', { ascending: false })
+      .order('id')
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(`Could not load entries: ${error.message}`);
+    rows.push(...(data satisfies ReviewRow[]));
+    if (data.length < PAGE_SIZE) break;
+  }
+  return rows.map(toReviewEntry).sort(compareEntries);
 }
 
 /**

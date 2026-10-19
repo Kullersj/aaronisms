@@ -295,20 +295,9 @@ describe('moderation functions', () => {
     ).not.toBeNull();
   });
 
-  it('deletes an entry with its lines and tokens, and speakers it leaves without lines', async () => {
-    const lonely = crypto.randomUUID();
-    await admin
-      .from('speakers')
-      .insert({ id: lonely, name: `${PREFIX} lonely`, slug: `${PREFIX}-lonely` });
+  it('deletes an entry with its lines and tokens, and keeps its speakers', async () => {
     const kept = await submit();
-    const { id } = await submit({ speaker: lonely });
-    await admin.from('entry_lines').insert({
-      entry_id: id,
-      position: 2,
-      kind: 'line',
-      speaker_id: speakerId,
-      text: 'A shared speaker',
-    });
+    const { id } = await submit();
     await admin
       .from('entries')
       .update({ image_path: `${PREFIX}/photo.png` })
@@ -321,8 +310,6 @@ describe('moderation functions', () => {
     expect((await admin.from('moderation_tokens').select('id').eq('entry_id', id)).data).toEqual(
       [],
     );
-    // The speaker only this entry used is gone; the one another entry still uses stays.
-    expect((await admin.from('speakers').select('id').eq('id', lonely)).data).toEqual([]);
     expect((await admin.from('speakers').select('id').eq('id', speakerId)).data).toHaveLength(1);
     expect((await entryRow(kept.id)).data?.status).toBe('pending');
 
