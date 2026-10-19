@@ -31,8 +31,10 @@ export function SiteHeader() {
             <SearchBox className="w-36 sm:w-48" />
             {/*
               A plain anchor, not <Link>: the client router remembers where /random redirected
-              the first time and replays it, so later presses never reach the server.
+              the first time and replays it, so later presses never reach the server. The lint
+              rule mistakes /random for a page because the @modal catch-all matches every path.
             */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
             <a
               href="/random"
               className={cn(
