@@ -1,64 +1,74 @@
 import { expect, test } from '@playwright/test';
+import { SEED } from '../../fixtures/seed';
+import { EntryPage } from '../../pages/EntryPage';
+import { FeedPage } from '../../pages/FeedPage';
+import { SiteHeader } from '../../pages/SiteHeader';
 import { SpeakerPage } from '../../pages/SpeakerPage';
 
+const { testAaron, pat, sam } = SEED.speakers;
+
 test.describe('speakers', () => {
-  test('the index lists speakers with their published line counts', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
+    await new FeedPage(page).goto();
+    await new SiteHeader(page).link('Speakers').click();
+    await expect(new SpeakerPage(page).indexHeading).toBeVisible();
+  });
+
+  test('the nav opens the index, which lists speakers with their published line counts', async ({
+    page,
+  }) => {
     const speakers = new SpeakerPage(page);
-    await speakers.gotoIndex();
-    await expect(page.getByRole('heading', { level: 1, name: 'Speakers' })).toBeVisible();
-    await expect(speakers.indexLink('Test Aaron')).toContainText('3 lines');
-    await expect(speakers.indexLink('Pat Example')).toContainText('1 line');
+    await expect(new SiteHeader(page).link('Speakers')).toHaveAttribute('aria-current', 'page');
+    await expect(speakers.indexLink(testAaron.name)).toContainText('3 lines');
+    await expect(speakers.indexLink(pat.name)).toContainText('1 line');
     // Sam Sample also has a line in a pending entry, which is not counted.
-    await expect(speakers.indexLink('Sam Sample')).toContainText('1 line');
+    await expect(speakers.indexLink(sam.name)).toContainText('1 line');
   });
 
   test('a speaker page lists their entries, newest first, with a count', async ({ page }) => {
     const speakers = new SpeakerPage(page);
-    const response = await speakers.goto('test-aaron');
-    expect(response?.status()).toBe(200);
-    await expect(speakers.heading).toHaveText('Test Aaron');
-    await expect(speakers.count).toHaveText('3 lines in 3 Aaronisms');
-    await expect(speakers.entries).toHaveCount(3);
-    await expect(page).toHaveTitle('Test Aaron | Aaronisms');
-    // Entries keep every line, including other speakers' and stage directions.
-    await expect(speakers.entries.nth(1).getByText('It is mostly a gourd, Test.')).toBeVisible();
-    await expect(speakers.entries.getByText('A bicycle is just a horse')).toBeVisible();
+    await speakers.indexLink(testAaron.name).click();
+    await expect(page).toHaveURL(new RegExp(`/speakers/${testAaron.slug}$`));
+    await expect(speakers.heading).toHaveText(testAaron.name);
+    await expect(speakers.count).toHaveText(
+      `${testAaron.lines} lines in ${testAaron.aaronisms} Aaronisms`,
+    );
+    await expect(page).toHaveTitle(`${testAaron.name} | Aaronisms`);
+    await expect(speakers.entries).toHaveCount(testAaron.aaronisms);
+    // Entries keep every line, including other speakers' words.
+    await expect(speakers.entries.nth(0).getByText(SEED.published.sandwich.text)).toBeVisible();
+    await expect(speakers.entries.nth(1).getByText(SEED.published.pumpkin.reply)).toBeVisible();
+    await expect(speakers.entries.nth(2).getByText(SEED.published.bicycle.text)).toBeVisible();
   });
 
-  test('does not show pending lines', async ({ page }) => {
+  test('pending lines are not shown or counted', async ({ page }) => {
     const speakers = new SpeakerPage(page);
-    await speakers.goto('sam-sample');
+    await speakers.indexLink(sam.name).click();
     await expect(speakers.count).toHaveText('1 line in 1 Aaronism');
-    await expect(page.getByText('Pending quote about a very patient toaster.')).toHaveCount(0);
+    await expect(page.getByText(SEED.hidden.pending.text)).toHaveCount(0);
+    await expect(page.getByText(SEED.published.lighthouse.text)).toBeVisible();
   });
 
-  test('unknown speakers are a 404', async ({ page }) => {
-    const speakers = new SpeakerPage(page);
-    const response = await speakers.goto('nobody-here');
-    expect(response?.status()).toBe(404);
-    await expect(page.getByRole('heading', { name: 'Not found' })).toBeVisible();
-  });
-
-  test('speaker names on cards link to the speaker page, and back to the index', async ({
+  test('a speaker name on an entry leads to their page, and All speakers back to the index', async ({
     page,
   }) => {
-    await page.goto('/a/2026-01-05-2');
-    await page.getByRole('link', { name: 'Pat Example:' }).click();
-    await expect(page).toHaveURL(/\/speakers\/pat-example$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Pat Example' })).toBeVisible();
     const speakers = new SpeakerPage(page);
+    await new SiteHeader(page).link('Home').click();
+    await new FeedPage(page).permalinkFor(SEED.published.pumpkin.date, 1).click();
+    await expect(page).toHaveURL(new RegExp(`/a/${SEED.published.pumpkin.slug}$`));
+    await expect(new EntryPage(page).article).toBeVisible();
+    await page.getByRole('link', { name: `${pat.name}:` }).click();
+    await expect(page).toHaveURL(new RegExp(`/speakers/${pat.slug}$`));
+    await expect(speakers.heading).toHaveText(pat.name);
     await speakers.allSpeakers.click();
     await expect(page).toHaveURL(/\/speakers$/);
+    await expect(speakers.indexHeading).toBeVisible();
   });
+});
 
-  test('the nav links to the speakers index', async ({ page }) => {
-    await page.goto('/');
-    const nav = page.getByRole('navigation', { name: 'Main' });
-    await nav.getByRole('link', { name: 'Speakers' }).click();
-    await expect(page).toHaveURL(/\/speakers$/);
-    await expect(nav.getByRole('link', { name: 'Speakers' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
-  });
+test('a shared link to an unknown speaker says not found', async ({ page }) => {
+  const speakers = new SpeakerPage(page);
+  const response = await speakers.goto('nobody-here');
+  expect(response?.status()).toBe(404);
+  await expect(new EntryPage(page).notFound).toBeVisible();
 });

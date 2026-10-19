@@ -1,20 +1,26 @@
 import type { Locator, Page } from '@playwright/test';
+import { EntryForm } from './EntryForm';
 
-export class ModeratePage {
+/** A moderator's token page, opened from a button in the notification email. */
+export class ModeratePage extends EntryForm {
   readonly approve: Locator;
   readonly rejectSummary: Locator;
   readonly reason: Locator;
   readonly reject: Locator;
   readonly edit: Locator;
+  readonly hint: Locator;
 
-  constructor(private readonly page: Page) {
+  constructor(page: Page) {
+    super(page);
     this.approve = page.getByRole('button', { name: 'Approve' });
     this.rejectSummary = page.getByText('Reject…');
     this.reason = page.getByLabel('Reason (optional)');
     this.reject = page.getByRole('button', { name: 'Reject', exact: true });
     this.edit = page.getByRole('link', { name: 'Edit before approving' });
+    this.hint = page.getByText('Nothing happens until you press a button below.');
   }
 
+  /** Follows a link from an email. */
   async goto(path: string) {
     return this.page.goto(path);
   }

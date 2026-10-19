@@ -8,7 +8,6 @@ export class SearchPage {
   readonly results: Locator;
   readonly summary: Locator;
   readonly speakerChips: Locator;
-  readonly highlights: Locator;
 
   constructor(private readonly page: Page) {
     const form = page.getByRole('search');
@@ -18,15 +17,21 @@ export class SearchPage {
     this.results = page.getByRole('article');
     this.summary = page.getByRole('status');
     this.speakerChips = page.getByRole('navigation', { name: 'Filter by speaker' });
-    this.highlights = page.locator('mark');
   }
 
-  async goto(query?: string, speaker?: string) {
-    const params = new URLSearchParams();
-    if (query) params.set('q', query);
-    if (speaker) params.set('speaker', speaker);
-    const qs = params.toString();
-    return this.page.goto(qs ? `/search?${qs}` : '/search');
+  /** Types into the header box and presses Enter, as a visitor does. */
+  async search(query: string) {
+    await this.box.fill(query);
+    await this.box.press('Enter');
+  }
+
+  /** Only for a link a visitor might have been sent; everything else should use `search`. */
+  async open(path: string) {
+    return this.page.goto(path);
+  }
+
+  noMatches(query: string): Locator {
+    return this.page.getByText(`No Aaronisms match “${query}”`);
   }
 
   chip(name: string | RegExp): Locator {
