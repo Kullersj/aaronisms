@@ -26,4 +26,24 @@ test.describe('random', () => {
     await expect(page).toHaveURL(/\/a\/[^/]+$/);
     await expect(page.getByRole('article')).toBeVisible();
   });
+
+  test('the header button keeps working on every press', async ({ page }) => {
+    await page.goto('/');
+    const random = page.getByRole('link', { name: 'Random' });
+    const visited = new Set<string>();
+    for (let i = 0; i < 8; i++) {
+      const before = page.url();
+      // Each press must reach the server; a press the browser answers from memory times out here.
+      const response = page.waitForResponse((r) => new URL(r.url()).pathname === '/random');
+      await random.click();
+      await response;
+      await expect(page).not.toHaveURL(before);
+      await expect(page).toHaveURL(/\/a\/[^/]+$/);
+      await expect(page.getByRole('article')).toBeVisible();
+      const slug = new URL(page.url()).pathname.replace('/a/', '');
+      expect(PUBLISHED).toContain(slug);
+      visited.add(slug);
+    }
+    expect(visited.size).toBeGreaterThan(1);
+  });
 });
