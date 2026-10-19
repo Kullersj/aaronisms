@@ -11,7 +11,6 @@ const row: EntryRow = {
   status: 'published',
   image_path: null,
   image_alt: null,
-  submitted_by: 'Pat',
   published_at: '2026-01-06T12:05:00+00:00',
   created_at: '2026-01-06T11:00:00.123456+00:00',
   lines: [
@@ -42,7 +41,6 @@ describe('toEntry', () => {
   it('maps snake_case to camelCase and orders lines by position', () => {
     const entry = toEntry(row);
     expect(entry.saidOn).toBe('2026-01-05');
-    expect(entry.submittedBy).toBe('Pat');
     expect(entry.lines.map((l) => l.text)).toEqual(['First:', 'Second']);
     expect(entry.lines[1]?.speaker?.name).toBe('Test Aaron');
   });
