@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type BaseSyntheticEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import { FormProvider, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Turnstile } from '@marsidev/react-turnstile';
@@ -22,7 +23,11 @@ import { FieldError } from './FieldError';
 export type SubmitFormProps = {
   speakers: string[];
   turnstileSiteKey: string;
+  /** Shown in a dialog: confirm in place of the form once sent, rather than with a toast. */
+  inDialog?: boolean;
 };
+
+const THANKS = "Thanks, it's been sent for review.";
 
 /** Today's date in the visitor's own time zone, as YYYY-MM-DD. */
 function localToday(): string {
@@ -39,7 +44,8 @@ const emptyForm = (): NewSubmissionInput => ({
   submittedBy: '',
 });
 
-export function SubmitForm({ speakers, turnstileSiteKey }: SubmitFormProps) {
+export function SubmitForm({ speakers, turnstileSiteKey, inDialog = false }: SubmitFormProps) {
+  const router = useRouter();
   const form = useForm<NewSubmissionInput, unknown, NewSubmission>({
     resolver: zodResolver(newSubmissionSchema),
     defaultValues: emptyForm(),
@@ -53,6 +59,7 @@ export function SubmitForm({ speakers, turnstileSiteKey }: SubmitFormProps) {
   } = form;
   const [captcha, setCaptcha] = useState('');
   const [serverError, setServerError] = useState<string>();
+  const [sent, setSent] = useState(false);
   // Bumping the key remounts the widget, which fetches a fresh single-use token.
   const [captchaKey, setCaptchaKey] = useState(0);
   // Likewise for the file input, which has no other way to be emptied.
@@ -69,7 +76,8 @@ export function SubmitForm({ speakers, turnstileSiteKey }: SubmitFormProps) {
     try {
       const result = await submitEntry(data);
       if (result.ok) {
-        toast.success("Thanks, it's been sent for review.");
+        if (inDialog) setSent(true);
+        else toast.success(THANKS);
         reset(emptyForm());
         setFileKey((key) => key + 1);
       } else {
@@ -82,6 +90,17 @@ export function SubmitForm({ speakers, turnstileSiteKey }: SubmitFormProps) {
       setCaptcha('');
       setCaptchaKey((key) => key + 1);
     }
+  }
+
+  if (sent) {
+    return (
+      <div className="flex flex-col items-start gap-4">
+        <p role="status">{THANKS}</p>
+        <Button type="button" onClick={() => router.back()}>
+          Done
+        </Button>
+      </div>
+    );
   }
 
   return (

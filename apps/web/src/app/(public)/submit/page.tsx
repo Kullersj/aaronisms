@@ -1,16 +1,12 @@
 import type { Metadata } from 'next';
-import { SubmitForm } from '@/features/submissions/components/SubmitForm';
-import { getSpeakerNames } from '@/features/submissions/queries';
-import { getServerEnv } from '@/lib/env';
+import { SubmitFormLoader } from '@/features/submissions/components/SubmitFormLoader';
 
 export const metadata: Metadata = { title: 'Submit an Aaronism' };
 
 // Needs Supabase and the server environment at request time, never at build time.
 export const dynamic = 'force-dynamic';
 
-export default async function SubmitPage() {
-  const { turnstileSiteKey } = getServerEnv();
-  const speakers = await getSpeakerNames();
+export default function SubmitPage() {
   return (
     <>
       <h1 className="text-3xl font-light tracking-tight sm:text-4xl">Submit an Aaronism</h1>
@@ -18,7 +14,7 @@ export default async function SubmitPage() {
         Add something that was said. It is reviewed by a moderator before it appears.
       </p>
       <div className="bg-card border-border rounded-md border p-5 shadow-xs sm:p-6">
-        <SubmitForm speakers={speakers} turnstileSiteKey={turnstileSiteKey} />
+        <SubmitFormLoader />
       </div>
     </>
   );
