@@ -1,5 +1,16 @@
 # @aaronisms/web
 
+## 0.5.0
+
+### Minor Changes
+
+- fef778a: Let the admin delete an entry for good from its edit page, after a confirmation, and find any entry from a new Entries list in the admin.
+
+### Patch Changes
+
+- Updated dependencies [fef778a]
+  - @aaronisms/db@0.3.0
+
 ## 0.4.1
 
 ### Patch Changes

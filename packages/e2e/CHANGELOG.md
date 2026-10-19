@@ -1,5 +1,11 @@
 # @aaronisms/e2e
 
+## 0.4.3
+
+### Patch Changes
+
+- fef778a: Let the admin delete an entry for good from its edit page, after a confirmation, and find any entry from a new Entries list in the admin.
+
 ## 0.4.2
 
 ### Patch Changes
