@@ -58,7 +58,7 @@ const todayUtc = () => new Date().toISOString().slice(0, 10);
 
 export const newSubmissionLineSchema = z
   .object({
-    speaker: z.string().trim().min(1).max(60).nullable(),
+    speaker: z.string().trim().min(1, 'Who said it?').max(60).nullable(),
     text: z.string().trim().min(1, 'Say something').max(1000),
     kind: lineKindSchema.default('line'),
   })
@@ -67,10 +67,13 @@ export const newSubmissionLineSchema = z
     path: ['speaker'],
   });
 
+const contextSchema = z.string().trim().max(200).optional();
+const linesSchema = z.array(newSubmissionLineSchema).min(1, 'Add at least one line').max(30);
+
 export const newSubmissionSchema = z.object({
   saidOn: z.iso.date().default(todayUtc),
-  context: z.string().trim().max(200).optional(),
-  lines: z.array(newSubmissionLineSchema).min(1, 'Add at least one line').max(30),
+  context: contextSchema,
+  lines: linesSchema,
   submittedBy: z.string().trim().max(80).optional(),
   image: z
     .instanceof(File)
@@ -79,7 +82,15 @@ export const newSubmissionSchema = z.object({
     .optional(),
 });
 
+/** An edit to an existing entry: the date (null for undated College Years entries), setup line and lines. */
+export const entryEditSchema = z.object({
+  saidOn: z.iso.date().nullable(),
+  context: contextSchema,
+  lines: linesSchema,
+});
+
 export type NewSubmissionLine = z.infer<typeof newSubmissionLineSchema>;
+export type EntryEdit = z.infer<typeof entryEditSchema>;
 /** Validated submission, with defaults applied. */
 export type NewSubmission = z.infer<typeof newSubmissionSchema>;
 /** What a form may send before defaults are applied. */

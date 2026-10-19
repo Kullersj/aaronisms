@@ -19,16 +19,28 @@ jobs:
         with:
           version: 2.121.0 # keep in step with mise.toml
       - run: pnpm install --frozen-lockfile
-      # Starts the database, REST API and Storage that the site reads; migrations and seed.sql apply.
-      - run: supabase start -x realtime,imgproxy,studio,edge-runtime,logflare,vector,supavisor,mailpit
+      # Database, REST API, Auth and Storage, plus Mailpit, which receives the moderation emails and
+      # the admin magic link. Migrations and seed.sql apply.
+      - run: supabase start -x realtime,imgproxy,studio,edge-runtime,logflare,vector,supavisor
         working-directory: packages/db
-      - name: Export local Supabase credentials for the site
+      - name: Configure the site and tests for the local stack
         working-directory: packages/db
         run: |
-          eval "$(supabase status -o env | grep -E '^(API_URL|ANON_KEY)=')"
+          eval "$(supabase status -o env | grep -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY)=')"
           {
             echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_URL=$API_URL"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "SITE_URL=http://localhost:3000"
+            # Fake addresses: the first is the default moderator and admin.
+            echo "MODERATOR_EMAILS=first.mod@example.com, second.mod@example.com"
+            # Cloudflare's documented always-pass Turnstile test keys.
+            echo "TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA"
+            echo "NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA"
+            # Real SMTP to the local stack's Mailpit; no Resend account needed.
+            echo "EMAIL_TRANSPORT=smtp"
+            echo "EMAIL_FROM=Aaronisms <noreply@example.com>"
           } >> "$GITHUB_ENV"
       - run: pnpm exec playwright install --with-deps chromium
         working-directory: packages/e2e

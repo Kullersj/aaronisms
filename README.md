@@ -1,6 +1,6 @@
 # Aaronisms
 
-A collection of things said. A Next.js monorepo (pnpm workspaces + Turborepo) backed by Supabase. See the migration plan for the full design; this repo is at Phase 2 (public UI).
+A collection of things said. A Next.js monorepo (pnpm workspaces + Turborepo) backed by Supabase. See the migration plan for the full design; this repo is at Phase 3 (submissions and moderation).
 
 ## Setup
 
@@ -39,7 +39,37 @@ NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<ANON_KEY>
 ```
 
-`pnpm e2e` needs the same two variables in the environment, plus the local stack running. Image hosts for `next/image` are derived from `NEXT_PUBLIC_SUPABASE_URL` at build time, so rebuild after changing it. Data is cached under the `entries` and `memes` tags; later phases call `revalidateTag` to refresh it.
+`pnpm e2e` needs the same two variables in the environment, plus the local stack running (and the extra variables under "Submissions, moderation and admin" below). Image hosts for `next/image` are derived from `NEXT_PUBLIC_SUPABASE_URL` at build time, so rebuild after changing it. Data is cached under the `entries` and `memes` tags; later phases call `revalidateTag` to refresh it.
+
+## Submissions, moderation and admin
+
+Everything here needs more of the server environment than the public pages (see `.env.example`). With the local stack running, add to `apps/web/.env.local`:
+
+```sh
+SUPABASE_SERVICE_ROLE_KEY=<SERVICE_ROLE_KEY>   # server only
+SITE_URL=http://localhost:3000
+MODERATOR_EMAILS=first@example.com, second@example.com
+TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA     # Cloudflare's always-pass test keys
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA
+EMAIL_TRANSPORT=smtp                                          # Mailpit at http://127.0.0.1:54324
+EMAIL_FROM="Aaronisms <noreply@example.com>"
+```
+
+**Submitting.** `/submit` takes a date, an optional setup line, rows of speaker and line (or stage direction), an optional photo and an optional name. A Server Action validates it with the shared Zod schema, checks a honeypot field, Turnstile and a per-IP rate limit (5 per hour, kept in the database), then saves it as `pending` with the service role and emails the moderators after the response is sent. The Turnstile test secret is recognised and never sent to Cloudflare, so nothing here needs the internet.
+
+**Moderating by email.** Every address in `MODERATOR_EMAILS` gets its own email with Approve, Reject and Edit before approving buttons. The first address is the default moderator: the `Reply-To`, the recipient of failure alerts and the only address that can sign in to `/admin`. Each button opens `/moderate/<token>`, which only displays the submission; the decision is a POST from that page, because email scanners open links. Tokens are 32 random bytes, stored only as a SHA-256 hash, valid for 14 days, and stop working if the address leaves `MODERATOR_EMAILS`. The first decision wins (`decide_entry` locks the entry row); later links say "Already approved by ...". Every decision expires the `entries` cache tag, so the site updates immediately.
+
+**Admin.** `/admin` is a fallback behind a Supabase magic link (`/admin/login`): the pending queue, `/admin/entries/[id]` to edit any entry, and `/admin/speakers` to rename and merge speakers. Only the default moderator is let in; `proxy.ts` refreshes the session and every page and action calls `requireAdmin()` again. Locally the sign-in email arrives in Mailpit.
+
+**Email.** Templates live in `packages/email`. Preview them with hot reload:
+
+```sh
+pnpm --filter @aaronisms/email dev     # http://localhost:3001
+```
+
+`EMAIL_TRANSPORT=resend` (the default, needs `RESEND_API_KEY` and a verified `EMAIL_FROM` domain) is for production. `EMAIL_TRANSPORT=smtp` sends real SMTP to `EMAIL_SMTP_URL` (default `smtp://127.0.0.1:54325`, the local Mailpit), where you can read the messages in its web UI or API.
+
+**Tests need the local stack.** The unit tests in `apps/web`, `packages/email` and `packages/db` talk to the real local Supabase and Mailpit, so run them with `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` set from `supabase status -o env`. The e2e tests also need `MODERATOR_EMAILS` (two or more addresses), `SITE_URL` and the settings above in their environment; see `.github/workflows/e2e.yml`.
 
 ## Packages
 
@@ -48,7 +78,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<ANON_KEY>
 | `@aaronisms/web`     | `apps/web`        | The Next.js site (App Router, Tailwind v4), deployed to Vercel |
 | `@aaronisms/ui`      | `packages/ui`     | shadcn-style primitives, `cn()`, Tailwind theme tokens         |
 | `@aaronisms/db`      | `packages/db`     | Supabase migrations, seed, generated types, Zod schemas        |
-| `@aaronisms/email`   | `packages/email`  | Email templates (placeholder until Phase 3)                    |
+| `@aaronisms/email`   | `packages/email`  | React Email templates and `sendEmail()` (Resend or local SMTP) |
 | `@aaronisms/config`  | `packages/config` | Shared ESLint, TypeScript and Prettier config                  |
 | `@aaronisms/e2e`     | `packages/e2e`    | Playwright end-to-end tests                                    |
 | `@aaronisms/scripts` | `scripts`         | One-off data jobs: Google Sites and Google Form import         |
@@ -81,7 +111,7 @@ pnpm exec supabase start            # start the local stack
 pnpm exec supabase db reset         # apply migrations + seed.sql (made-up sample entries)
 pnpm db:types                       # regenerate src/database.types.ts after a schema change
 pnpm test                           # unit tests (no database needed)
-pnpm test:db                        # RLS tests against the local stack (see below)
+pnpm test:db                        # RLS and moderation tests against the local stack (see below)
 ```
 
 `test:db` reads `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`; without them it is skipped. Take the values from `pnpm exec supabase status -o env` (`API_URL`, `ANON_KEY`, `SERVICE_ROLE_KEY`).

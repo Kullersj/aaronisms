@@ -109,3 +109,4 @@ playwright-report/
 test-results/
 .env*.local
 .vercel
+.auth/

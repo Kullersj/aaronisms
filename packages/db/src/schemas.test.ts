@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { memeSchema, newSubmissionSchema } from './schemas';
+import { entryEditSchema, memeSchema, newSubmissionSchema } from './schemas';
 
 describe('newSubmissionSchema', () => {
   it('defaults the date to today and the line kind to line', () => {
@@ -30,6 +30,23 @@ describe('newSubmissionSchema', () => {
     expect(newSubmissionSchema.safeParse({ lines, image: pdf }).success).toBe(false);
     const png = new File(['x'], 'a.png', { type: 'image/png' });
     expect(newSubmissionSchema.safeParse({ lines, image: png }).success).toBe(true);
+  });
+});
+
+describe('entryEditSchema', () => {
+  const lines = [{ speaker: 'Test Aaron', text: 'Hi', kind: 'line' }];
+
+  it('needs an explicit date, which may be null for undated entries', () => {
+    expect(entryEditSchema.safeParse({ lines }).success).toBe(false);
+    expect(entryEditSchema.safeParse({ saidOn: null, lines }).success).toBe(true);
+    expect(entryEditSchema.safeParse({ saidOn: '2026-10-12', lines }).success).toBe(true);
+    expect(entryEditSchema.safeParse({ saidOn: '12/10/2026', lines }).success).toBe(false);
+  });
+
+  it('applies the same line rules as a submission', () => {
+    expect(entryEditSchema.safeParse({ saidOn: null, lines: [] }).success).toBe(false);
+    const nobody = [{ speaker: null, text: 'Hi', kind: 'line' }];
+    expect(entryEditSchema.safeParse({ saidOn: null, lines: nobody }).success).toBe(false);
   });
 });
 

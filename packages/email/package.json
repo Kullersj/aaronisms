@@ -7,12 +7,26 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "dev": "email dev --dir src/templates --port 3001",
     "lint": "eslint .",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@aaronisms/config": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/nodemailer": "^8.0.2",
+    "@types/react": "catalog:",
     "eslint": "catalog:",
-    "typescript": "catalog:"
+    "react-email": "^6.11.3",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "dependencies": {
+    "@react-email/components": "^1.0.12",
+    "nodemailer": "^10.1.7",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "resend": "^6.34.1"
   }
 }

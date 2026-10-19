@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { buttonVariants } from '@aaronisms/ui/button';
 import { cn } from '@aaronisms/ui/lib/utils';
-import { SUBMIT_URL } from '@/lib/links';
 import { Container } from './Container';
 import { SiteNav, type NavItem } from './SiteNav';
 import { ThemeToggle } from './ThemeToggle';
@@ -27,17 +26,15 @@ export function SiteHeader() {
           <SiteNav items={NAV_ITEMS} />
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <a
-              href={SUBMIT_URL}
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href="/submit"
               className={cn(
                 buttonVariants({ size: 'sm' }),
                 'bg-white text-neutral-900 hover:bg-white/90',
               )}
             >
               Submit an Aaronism
-            </a>
+            </Link>
           </div>
         </div>
         <div className="py-10 text-center sm:py-14">
