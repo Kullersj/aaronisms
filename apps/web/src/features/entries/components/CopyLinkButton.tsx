@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, Link2 } from 'lucide-react';
 import { Button } from '@aaronisms/ui/button';
 
@@ -13,6 +13,8 @@ type Status = 'idle' | 'copied' | 'failed';
 
 export function CopyLinkButton({ path }: CopyLinkButtonProps) {
   const [status, setStatus] = useState<Status>('idle');
+  const resetTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(resetTimer.current), []);
 
   async function copy() {
     try {
@@ -21,7 +23,9 @@ export function CopyLinkButton({ path }: CopyLinkButtonProps) {
     } catch {
       setStatus('failed');
     }
-    setTimeout(() => setStatus('idle'), 2500);
+    // Restart the timer so a second click keeps its message for the full time.
+    clearTimeout(resetTimer.current);
+    resetTimer.current = setTimeout(() => setStatus('idle'), 2500);
   }
 
   return (

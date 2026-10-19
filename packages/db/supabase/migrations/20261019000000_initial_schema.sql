@@ -29,7 +29,8 @@ create table public.entries (
   no_preview boolean not null default false,
   published_at timestamptz,
   created_at timestamptz not null default now(),
-  search tsvector
+  search tsvector,
+  check (status <> 'published' or published_at is not null)
 );
 
 create table public.entry_lines (
@@ -218,14 +219,14 @@ create policy "Published memes are public" on public.memes
   for select to anon, authenticated using (status = 'published');
 
 -- Grants: start from nothing for the API roles, then allow reads only.
--- Private entry columns (submitter_ip, reviewed_by_email, decision_note) are never granted,
+-- Private entry columns (submitted_by, submitter_ip, reviewed_by_email, decision_note) are never granted,
 -- so select explicit columns instead of `select *` from the browser or anon client.
 revoke all on all tables in schema public from anon, authenticated;
 alter default privileges for role postgres in schema public revoke all on tables from anon, authenticated;
 
 grant select on public.speakers, public.entry_lines, public.memes to anon, authenticated;
 grant select (
-  id, slug, said_on, era, status, image_path, image_alt, submitted_by, no_preview,
+  id, slug, said_on, era, status, image_path, image_alt, no_preview,
   published_at, created_at, search
 ) on public.entries to anon, authenticated;
 grant execute on function public.search_entries(text) to anon, authenticated;

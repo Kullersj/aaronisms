@@ -9,7 +9,7 @@ export const ENTRIES_TAG = 'entries';
 
 // The anon role cannot `select *` from entries (private columns), so list columns explicitly.
 const ENTRY_COLUMNS =
-  'id, slug, said_on, era, status, image_path, image_alt, submitted_by, published_at, created_at, lines:entry_lines(id, position, kind, speaker_label, text, speaker:speakers(id, name, slug))';
+  'id, slug, said_on, era, status, image_path, image_alt, published_at, created_at, lines:entry_lines(id, position, kind, speaker_label, text, speaker:speakers(id, name, slug))';
 
 const cacheOptions = { tags: [ENTRIES_TAG], revalidate: 3600 };
 

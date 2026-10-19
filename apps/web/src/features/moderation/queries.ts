@@ -5,8 +5,16 @@ import { getServerEnv } from '@/lib/env';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hashToken, isTokenShaped } from './tokens';
 
+/** An entry as moderators see it: the public shape plus the private submitter name. */
+export type ReviewEntry = Entry & { submittedBy: string | null };
+type ReviewRow = EntryRow & { submitted_by: string | null };
+
+function toReviewEntry(row: ReviewRow): ReviewEntry {
+  return { ...toEntry(row), submittedBy: row.submitted_by };
+}
+
 export type TokenView =
-  | { state: 'open'; entry: Entry }
+  | { state: 'open'; entry: ReviewEntry }
   | {
       state: 'decided';
       status: 'pending' | 'published' | 'rejected';
@@ -21,25 +29,25 @@ const REVIEW_COLUMNS =
   'id, slug, said_on, era, status, image_path, image_alt, submitted_by, published_at, created_at, lines:entry_lines(id, position, kind, speaker_label, text, speaker:speakers(id, name, slug))';
 
 /** One entry by id for moderators, whatever its status. Service role: callers must authorise. */
-export async function getEntryForReview(id: string): Promise<Entry | null> {
+export async function getEntryForReview(id: string): Promise<ReviewEntry | null> {
   const { data, error } = await createAdminClient()
     .from('entries')
     .select(REVIEW_COLUMNS)
     .eq('id', id)
     .maybeSingle();
   if (error) throw new Error(`Could not load entry: ${error.message}`);
-  return data ? toEntry(data satisfies EntryRow) : null;
+  return data ? toReviewEntry(data satisfies ReviewRow) : null;
 }
 
 /** Pending entries, oldest submission first. Service role: callers must authorise. */
-export async function getPendingEntries(): Promise<Entry[]> {
+export async function getPendingEntries(): Promise<ReviewEntry[]> {
   const { data, error } = await createAdminClient()
     .from('entries')
     .select(REVIEW_COLUMNS)
     .eq('status', 'pending')
     .order('created_at', { ascending: true });
   if (error) throw new Error(`Could not load the queue: ${error.message}`);
-  return (data satisfies EntryRow[]).map(toEntry);
+  return (data satisfies ReviewRow[]).map(toReviewEntry);
 }
 
 /**

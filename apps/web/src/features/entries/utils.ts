@@ -18,9 +18,9 @@ export function yearOf(isoDate: string): number {
   return Number(isoDate.slice(0, 4));
 }
 
-/** The trailing counter of a slug: `2026-10-12-2` is 2. Slugs without one sort first. */
+/** The trailing counter of a slug: `2026-10-12-2` is 2. Slugs without one (`2026-10-12`) sort first. */
 function slugCounter(slug: string): number {
-  return Number(/-(\d+)$/.exec(slug)?.[1] ?? 0);
+  return Number(/^(?:\d{4}-\d{2}-\d{2}|college)-(\d+)$/.exec(slug)?.[1] ?? 0);
 }
 
 /** Newest date first; entries sharing a date keep their original (slug counter) order. */

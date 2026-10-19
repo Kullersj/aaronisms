@@ -10,5 +10,9 @@ export default defineConfig({
       'server-only': new URL('./tests/stubs/server-only.ts', import.meta.url).pathname,
     },
   },
-  test: { include: ['tests/**/*.test.{ts,tsx}'], setupFiles: ['tests/setup-env.ts'] },
+  test: {
+    include: ['tests/**/*.test.{ts,tsx}'],
+    globalSetup: ['../../packages/db/testing/global-setup.ts'],
+    setupFiles: ['tests/setup-env.ts'],
+  },
 });

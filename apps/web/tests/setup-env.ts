@@ -1,6 +1,6 @@
-// Integration tests run against the local Supabase stack and its Mailpit. Take the connection from
-// the variables `supabase status -o env` provides (SUPABASE_URL, SUPABASE_ANON_KEY,
-// SUPABASE_SERVICE_ROLE_KEY) and fill in the rest of the server environment for local use.
+// Integration tests run against the local Supabase stack and its Mailpit. The shared global setup
+// sets SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY; fill in the rest of the
+// server environment for local use.
 const env = process.env;
 env.NEXT_PUBLIC_SUPABASE_URL ??= env.SUPABASE_URL;
 env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??= env.SUPABASE_ANON_KEY;

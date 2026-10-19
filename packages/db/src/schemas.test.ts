@@ -31,6 +31,14 @@ describe('newSubmissionSchema', () => {
     const png = new File(['x'], 'a.png', { type: 'image/png' });
     expect(newSubmissionSchema.safeParse({ lines, image: png }).success).toBe(true);
   });
+
+  it('treats an empty file input as no image', () => {
+    const lines = [{ speaker: 'A', text: 'B' }];
+    const empty = new File([], '', { type: 'application/octet-stream' });
+    const result = newSubmissionSchema.safeParse({ lines, image: empty });
+    expect(result.success).toBe(true);
+    expect(result.data?.image).toBeUndefined();
+  });
 });
 
 describe('entryEditSchema', () => {

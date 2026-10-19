@@ -69,7 +69,11 @@ pnpm --filter @aaronisms/email dev     # http://localhost:3001
 
 `EMAIL_TRANSPORT=resend` (the default, needs `RESEND_API_KEY` and a verified `EMAIL_FROM` domain) is for production. `EMAIL_TRANSPORT=smtp` sends real SMTP to `EMAIL_SMTP_URL` (default `smtp://127.0.0.1:54325`, the local Mailpit), where you can read the messages in its web UI or API.
 
-**Tests need the local stack.** The unit tests in `apps/web`, `packages/email` and `packages/db` talk to the real local Supabase and Mailpit, so run them with `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` set from `supabase status -o env`. The e2e tests also need `MODERATOR_EMAILS` (two or more addresses), `SITE_URL` and the settings above in their environment; see `.github/workflows/e2e.yml`.
+**Tests use the local stack.** The unit tests in `apps/web`, `packages/email`, `packages/db` and `scripts` talk to the real local Supabase and Mailpit through a shared vitest global setup (see Database below), so they need Docker running. The e2e tests also need `MODERATOR_EMAILS` (two or more addresses), `SITE_URL` and the settings above in their environment; see `.github/workflows/e2e.yml`.
+
+## Changesets
+
+Every PR includes a changeset describing what changed (CI checks this). Run `pnpm changeset`, pick the packages you touched and the bump type, and commit the generated file in `.changeset/`. When changes land on `main`, the Release workflow applies the pending changesets, bumping versions and writing each package's `CHANGELOG.md`, and commits that straight to `main`. All packages are private, so nothing is published to npm.
 
 ## Packages
 
@@ -110,13 +114,12 @@ cd packages/db
 pnpm exec supabase start            # start the local stack
 pnpm exec supabase db reset         # apply migrations + seed.sql (made-up sample entries)
 pnpm db:types                       # regenerate src/database.types.ts after a schema change
-pnpm test                           # unit tests (no database needed)
-pnpm test:db                        # RLS and moderation tests against the local stack (see below)
+pnpm test                           # all tests, including RLS and importer tests on the real database
 ```
 
-`test:db` reads `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`; without them it is skipped. Take the values from `pnpm exec supabase status -o env` (`API_URL`, `ANON_KEY`, `SERVICE_ROLE_KEY`).
+`pnpm test` needs Docker running: the tests use the local Supabase stack (real Postgres), starting it if it is not already up and leaving it running afterwards. Set `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` to point at a different stack instead. `mise run setup` remains the one-time bootstrap.
 
-Security model: anonymous visitors can only read published entries, their lines, speakers and published memes. Everything else (writes, `moderation_tokens`, pending or rejected entries) goes through the service role in server code. The private entry columns (`submitter_ip`, `reviewed_by_email`, `decision_note`) are not granted to the API roles at all, so select explicit columns instead of `select *` from the anon client.
+Security model: anonymous visitors can only read published entries, their lines, speakers and published memes. Everything else (writes, `moderation_tokens`, pending or rejected entries) goes through the service role in server code. The private entry columns (`submitted_by`, `submitter_ip`, `reviewed_by_email`, `decision_note`) are not granted to the API roles at all, so select explicit columns instead of `select *` from the anon client. The bucket is public, so image URLs serve without a `storage.objects` policy; there is deliberately none, so anon cannot list objects.
 
 ## Importing the old Google Sites content
 

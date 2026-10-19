@@ -30,7 +30,6 @@ export const entrySchema = z.object({
   status: entryStatusSchema,
   imagePath: z.string().nullable(),
   imageAlt: z.string().nullable(),
-  submittedBy: z.string().nullable(),
   publishedAt: z.iso.datetime({ offset: true }).nullable(),
   createdAt: z.iso.datetime({ offset: true }),
   lines: z.array(entryLineSchema),
@@ -75,11 +74,15 @@ export const newSubmissionSchema = z.object({
   context: contextSchema,
   lines: linesSchema,
   submittedBy: z.string().trim().max(80).optional(),
-  image: z
-    .instanceof(File)
-    .refine((file) => file.size <= MAX_IMAGE_BYTES, 'Image must be 5 MB or smaller')
-    .refine((file) => IMAGE_TYPES.includes(file.type), 'Image must be a JPEG, PNG, WebP or GIF')
-    .optional(),
+  image: z.preprocess(
+    // A file input left empty still submits a zero-byte File.
+    (value) => (value instanceof File && value.size === 0 ? undefined : value),
+    z
+      .instanceof(File)
+      .refine((file) => file.size <= MAX_IMAGE_BYTES, 'Image must be 5 MB or smaller')
+      .refine((file) => IMAGE_TYPES.includes(file.type), 'Image must be a JPEG, PNG, WebP or GIF')
+      .optional(),
+  ),
 });
 
 /** An edit to an existing entry: the date (null for undated College Years entries), setup line and lines. */

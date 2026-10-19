@@ -1,9 +1,9 @@
 import 'server-only';
 import { AlertEmail, NewSubmissionEmail, newSubmissionSubject, sendEmail } from '@aaronisms/email';
-import type { Entry } from '@aaronisms/db/schemas';
 import { formatEntryDate } from '@/features/entries/utils';
 import { getServerEnv } from '@/lib/env';
 import { buildImageUrl } from '@/lib/supabase/storage';
+import type { ReviewEntry } from './queries';
 import type { ModerationToken } from './tokens';
 
 /** The link a moderator gets for one action; the page itself never acts on GET. */
@@ -19,7 +19,7 @@ export function moderationUrl(
  * Emails every moderator about a new submission. Failures are logged and reported to the default
  * moderator rather than thrown, because this runs after the submitter already got their response.
  */
-export async function notifyModerators(entry: Entry, tokens: ModerationToken[]) {
+export async function notifyModerators(entry: ReviewEntry, tokens: ModerationToken[]) {
   const env = getServerEnv();
   const results = await Promise.allSettled(
     tokens.map((moderator) =>

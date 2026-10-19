@@ -14,11 +14,14 @@
     "e2e": "turbo run e2e",
     "format": "prettier --write .",
     "db:types": "pnpm --filter @aaronisms/db db:types",
-    "prepare": "husky || true"
+    "prepare": "husky || true",
+    "changeset": "changeset",
+    "version-packages": "changeset version && prettier --write --log-level warn ."
   },
   "prettier": "@aaronisms/config/prettier",
   "devDependencies": {
     "@aaronisms/config": "workspace:*",
+    "@changesets/cli": "^3.0.3",
     "eslint": "catalog:",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",

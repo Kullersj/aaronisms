@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release-${{ github.ref }}
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The branch tip, not the triggering sha, so a queued run builds on the previous run's version commit.
+          ref: main
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
+      - uses: jdx/mise-action@v2
+      - run: pnpm install --frozen-lockfile
+      # Applies pending changesets (bumps versions, writes CHANGELOGs) and commits straight to main.
+      # The deploy-key push re-triggers Release and CI; that Release run finds no changesets and exits.
+      - run: pnpm version-packages
+      - name: Commit version bumps
+        env:
+          HUSKY: '0'
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No pending changesets."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: version packages"
+          git push origin HEAD:main

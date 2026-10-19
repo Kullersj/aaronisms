@@ -5,7 +5,6 @@ import type { Database } from '../src/database.types';
 const url = process.env.SUPABASE_URL;
 const anonKey = process.env.SUPABASE_ANON_KEY;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const configured = Boolean(url && anonKey && serviceKey);
 
 const options = { auth: { persistSession: false } };
 const BUCKET = 'aaronism-images';
@@ -19,7 +18,7 @@ const ids = {
   rejected: crypto.randomUUID(),
 };
 
-describe.skipIf(!configured)('row-level security (anon)', () => {
+describe('row-level security (anon)', () => {
   const anon = createClient<Database>(url ?? '', anonKey ?? '', options);
   const admin = createClient<Database>(url ?? '', serviceKey ?? '', options);
   const objectPath = `${PREFIX}/${ids.published}.png`;
@@ -35,6 +34,7 @@ describe.skipIf(!configured)('row-level security (anon)', () => {
       slug: `${PREFIX}-${status}`,
       said_on: '2026-01-01',
       status,
+      published_at: status === 'published' ? '2026-01-02T00:00:00Z' : null,
       submitter_ip: '203.0.113.9',
     }));
     expect((await admin.from('entries').insert(entries)).error).toBeNull();
@@ -89,6 +89,7 @@ describe.skipIf(!configured)('row-level security (anon)', () => {
 
   it('cannot read private entry columns', async () => {
     expect((await anon.from('entries').select('submitter_ip')).error).not.toBeNull();
+    expect((await anon.from('entries').select('submitted_by')).error).not.toBeNull();
     expect(
       (await anon.from('entries').select('decision_note, reviewed_by_email')).error,
     ).not.toBeNull();
@@ -194,5 +195,10 @@ describe.skipIf(!configured)('row-level security (anon)', () => {
       .from(BUCKET)
       .upload(`${PREFIX}/anon.png`, new Uint8Array([1]));
     expect(upload.error).not.toBeNull();
+  });
+
+  it('cannot list bucket objects', async () => {
+    const listed = await anon.storage.from(BUCKET).list(PREFIX);
+    expect(listed.error !== null || listed.data?.length === 0).toBe(true);
   });
 });

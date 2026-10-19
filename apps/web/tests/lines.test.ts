@@ -60,7 +60,6 @@ describe('entryToEditValues', () => {
     status: 'pending',
     imagePath: null,
     imageAlt: null,
-    submittedBy: null,
     publishedAt: null,
     createdAt: '2026-01-05T00:00:00+00:00',
     lines: kinds.map((kind, index) => ({

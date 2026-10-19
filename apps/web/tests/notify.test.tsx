@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Entry } from '@aaronisms/db/schemas';
+import type { ReviewEntry } from '@/features/moderation/queries';
 import { createModerationTokens } from '@/features/moderation/tokens';
 import { getServerEnv } from '@/lib/env';
 import { findMessages } from './mailpit';
 
 const submitter = `notify-${randomUUID().slice(0, 8)}`;
 
-const entry: Entry = {
+const entry: ReviewEntry = {
   id: randomUUID(),
   slug: '2026-10-18-1',
   saidOn: '2026-10-18',

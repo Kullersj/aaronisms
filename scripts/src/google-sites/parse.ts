@@ -173,10 +173,18 @@ function parseLine(segments: Segment[]): ParsedLine | null {
   return { speakerLabel: null, text, kind: allItalic ? 'line' : 'context' };
 }
 
+const DATE_TEXT = /([A-Za-z]+)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})/;
+
+/** True when a heading reads like "Month D, YYYY", so other section headings can be skipped. */
+function looksLikeDate(raw: string): boolean {
+  const match = DATE_TEXT.exec(clean(raw));
+  return MONTHS.includes((match?.[1] ?? '').toLowerCase());
+}
+
 /** Converts "October 6, 2025" (any spacing, optional ordinal) to `2025-10-06`. */
 export function parseDateText(raw: string): string {
   const text = clean(raw);
-  const match = /([A-Za-z]+)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})/.exec(text);
+  const match = DATE_TEXT.exec(text);
   const month = MONTHS.indexOf((match?.[1] ?? '').toLowerCase());
   if (!match || month === -1) throw new Error(`Unrecognised date heading: "${text}"`);
   const year = Number(match[3]);
@@ -192,10 +200,10 @@ export function parseDateText(raw: string): string {
  * The date text sits in several adjacent spans that can split mid-word ("October 6" + ", 202" +
  * "5"), so text nodes are joined with no separator and only then whitespace-collapsed.
  */
-function headingDate(heading: HTMLElement): string {
+function headingText(heading: HTMLElement): string {
   const copy = parse(heading.outerHTML).querySelector(SELECTORS.heading) ?? heading;
   for (const noise of copy.querySelectorAll(SELECTORS.headingNoise)) noise.remove();
-  return parseDateText(copy.text);
+  return copy.text;
 }
 
 function parseEntry(
@@ -218,7 +226,8 @@ function parseEntry(
 /**
  * Parses a saved Google Sites page into entries, in page order.
  *
- * - `modern`: only sections with a date heading are entries; others (header, nav) are skipped.
+ * - `modern`: only sections with a date heading are entries; others (header, nav, other headings)
+ *   are skipped.
  * - `college`: pages have no dates, so every section with content is one undated entry.
  */
 export function parseGoogleSitesPage(html: string, era: Era): ParsedEntry[] {
@@ -232,20 +241,31 @@ export function parseGoogleSitesPage(html: string, era: Era): ParsedEntry[] {
     }
     const heading = section.querySelector(SELECTORS.heading);
     if (!heading) continue;
-    entries.push(parseEntry(section, index, headingDate(heading)));
+    const text = headingText(heading);
+    if (!looksLikeDate(text)) {
+      console.warn(`Skipping section ${index}: heading is not a date: "${clean(text)}"`);
+      continue;
+    }
+    entries.push(parseEntry(section, index, parseDateText(text)));
   }
   return entries;
 }
 
-/** Every image on a page with the section it sits in. Used for the memes page. */
-export function parseImages(html: string): { sectionIndex: number; src: string }[] {
+/** Content images are hosted on googleusercontent or saved next to the page in `<name>_files/`. */
+const CONTENT_IMAGE = /^https:\/\/lh\d*(?:-\w+)?\.googleusercontent\.com\/|(?:^|\/)[^/]+_files\//i;
+
+/**
+ * Every content image on a page with the section it sits in and its position within that section
+ * (the `order` that `fetch-google-site-images.mjs` records). Used for the memes page.
+ */
+export function parseImages(html: string): { sectionIndex: number; order: number; src: string }[] {
   return parse(html)
     .querySelectorAll('section')
     .flatMap((section, sectionIndex) =>
       section
         .querySelectorAll(SELECTORS.image)
         .map((img) => img.getAttribute('src'))
-        .filter((src): src is string => Boolean(src))
-        .map((src) => ({ sectionIndex, src })),
+        .filter((src): src is string => Boolean(src) && CONTENT_IMAGE.test(src ?? ''))
+        .map((src, order) => ({ sectionIndex, order, src })),
     );
 }
