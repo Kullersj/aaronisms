@@ -12,7 +12,8 @@ permissions:
 
 jobs:
   version:
-    # The deploy-key push of the version commit triggers this workflow again; skip that run.
+    # The version commit carries [skip ci], so GitHub starts no workflows for it; this guard
+    # catches older version commits pushed without the marker.
     if: "!startsWith(github.event.head_commit.message, 'chore: version packages')"
     runs-on: ubuntu-latest
     steps:
@@ -44,5 +45,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "chore: version packages"
+          # [skip ci] stops every push workflow (CI, e2e, Lighthouse and this one) running again for
+          # a commit that only bumps versions and CHANGELOGs of code main has already tested.
+          git commit -m "chore: version packages [skip ci]"
           git push origin HEAD:main
