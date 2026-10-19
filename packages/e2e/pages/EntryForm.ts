@@ -8,33 +8,38 @@ export class EntryForm {
   readonly addStage: Locator;
   readonly saveAndApprove: Locator;
 
-  constructor(protected readonly page: Page) {
-    this.date = page.getByLabel('When was it said?');
-    this.context = page.getByLabel('Setup (optional)');
-    this.addLine = page.getByRole('button', { name: 'Add line' });
-    this.addStage = page.getByRole('button', { name: 'Add stage direction' });
-    this.saveAndApprove = page.getByRole('button', { name: 'Save and approve' });
+  /** `root` scopes the fields, e.g. to the dialog when the form is opened over another page. */
+  constructor(
+    protected readonly page: Page,
+    protected readonly root: Page | Locator = page,
+  ) {
+    this.date = root.getByLabel('When was it said?');
+    this.context = root.getByLabel('Setup (optional)');
+    this.addLine = root.getByRole('button', { name: 'Add line' });
+    this.addStage = root.getByRole('button', { name: 'Add stage direction' });
+    this.saveAndApprove = root.getByRole('button', { name: 'Save and approve' });
   }
 
   line(line: number): Locator {
-    return this.page.getByLabel(`What they said, line ${line}`);
+    return this.root.getByLabel(`What they said, line ${line}`);
   }
 
   stage(line: number): Locator {
-    return this.page.getByLabel(`Stage direction ${line}`);
+    return this.root.getByLabel(`Stage direction ${line}`);
   }
 
   removeLine(line: number): Locator {
-    return this.page.getByRole('button', { name: `Remove line ${line}` });
+    return this.root.getByRole('button', { name: `Remove line ${line}` });
   }
 
   speakerBox(line: number): Locator {
-    return this.page.getByRole('combobox', { name: `Speaker for line ${line}` });
+    return this.root.getByRole('combobox', { name: `Speaker for line ${line}` });
   }
 
   /** Picks an existing speaker, or adds a new one, in the combobox for a line (1-based). */
   async chooseSpeaker(line: number, name: string, { isNew = false } = {}) {
     await this.speakerBox(line).click();
+    // The speaker list opens in a portal outside any dialog, so it is found on the page.
     await this.page.getByPlaceholder('Search or add a speaker').fill(name);
     await this.page.getByRole('option', { name: isNew ? `Add “${name}”` : name }).click();
   }
