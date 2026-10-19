@@ -1,0 +1,4 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "ignoreCommand": "case \"$VERCEL_GIT_COMMIT_MESSAGE\" in 'chore: version packages'*) echo 'Version bump only; skipping the build.'; exit 0;; esac; exit 1"
+}
