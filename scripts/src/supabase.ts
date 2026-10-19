@@ -12,7 +12,31 @@ export function createServiceClient() {
       'Set SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY.',
     );
   }
-  return createClient<Database>(url, key, { auth: { persistSession: false } });
+  return createClient<Database>(projectUrl(url), key, { auth: { persistSession: false } });
+}
+
+/**
+ * The project URL the client expects: just the origin, like https://abc.supabase.co. Copying the
+ * "RESTful endpoint" from the dashboard adds /rest/v1, which the API answers with "Invalid path
+ * specified in request URL", so that suffix and trailing slashes are dropped. Anything else is an error.
+ */
+export function projectUrl(raw: string): string {
+  const trimmed = raw
+    .trim()
+    .replace(/\/+$/, '')
+    .replace(/\/rest\/v1$/, '');
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    throw new Error(`SUPABASE_URL is not a URL: ${raw}`);
+  }
+  if (!/^https?:$/.test(url.protocol) || url.pathname !== '/' || url.search) {
+    throw new Error(
+      `SUPABASE_URL should be the project URL, like https://<project-ref>.supabase.co, not ${raw}`,
+    );
+  }
+  return url.origin;
 }
 
 export function chunk<T>(items: T[], size: number): T[][] {

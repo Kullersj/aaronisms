@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { slugForSpeaker } from '@aaronisms/db/slug';
 import { resolvePagePaths } from './google-sites/files';
+import { resolveUserPath } from './paths';
 import {
   findImage,
   loadManifest,
@@ -49,12 +50,12 @@ async function main() {
     console.log(USAGE);
     return;
   }
-  const pages = resolvePagePaths(values.dir, {
-    ...(values.home && { home: values.home }),
-    ...(values.college && { college: values.college }),
-    ...(values.memes && { memes: values.memes }),
+  const pages = resolvePagePaths(values.dir && resolveUserPath(values.dir), {
+    ...(values.home && { home: resolveUserPath(values.home) }),
+    ...(values.college && { college: resolveUserPath(values.college) }),
+    ...(values.memes && { memes: resolveUserPath(values.memes) }),
   });
-  const imagesDir = values['images-dir'] ? path.resolve(values['images-dir']) : undefined;
+  const imagesDir = values['images-dir'] ? resolveUserPath(values['images-dir']) : undefined;
   const manifest = await loadManifest(imagesDir);
 
   const speakers = createSpeakerRegistry();

@@ -2,13 +2,15 @@
 // Downloads the images embedded in the live aaronisms.net Google Sites pages, which a
 // browser "Save page" does not keep. Run it on a machine that can reach the site:
 //
-//   node scripts/fetch-google-site-images.mjs [outDir]
+//   pnpm --filter @aaronisms/scripts fetch:images [outDir]   (from anywhere in the repo)
+//   node scripts/fetch-google-site-images.mjs [outDir]       (from the repo root)
 //
 // Writes the images plus a manifest.json that the importer uses to attach each image to
 // its entry (matched by page, date heading and order within the entry).
 // No dependencies: needs Node 18+ for the global fetch.
 
 import { mkdir, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const SITE = 'https://www.aaronisms.net';
@@ -18,7 +20,12 @@ const DATE =
 const IMG = /<img\b[^>]*\bsrc="(https:\/\/lh\d*(?:-\w+)?\.googleusercontent\.com\/[^"]+)"/g;
 const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp' };
 
-const outDir = resolve(process.argv[2] ?? 'aaronisms-images');
+// Windows shells do not expand a leading ~, so do it here. A relative path is relative to where the
+// command was run: pnpm runs package scripts inside scripts/ but sets INIT_CWD to that folder.
+const outDir = resolve(
+  process.env.INIT_CWD ?? process.cwd(),
+  (process.argv[2] ?? 'aaronisms-images').replace(/^~(?=$|[\\/])/, homedir()),
+);
 const decode = (s) => s.replaceAll('&amp;', '&');
 // Google Sites splits text across adjacent spans ("October 6" + ", 202" + "5"), so join without spaces.
 const text = (html) => html.replace(/<[^>]+>/g, '').replace(/&nbsp;|\s+/g, ' ');

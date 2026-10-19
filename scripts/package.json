@@ -1,11 +1,12 @@
 {
   "name": "@aaronisms/scripts",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "scripts": {
     "import:google-site": "tsx src/import-google-site.ts",
     "import:form-responses": "tsx src/import-form-responses.ts",
+    "fetch:images": "node fetch-google-site-images.mjs",
     "lint": "eslint .",
     "typecheck": "tsc",
     "test": "vitest run",
