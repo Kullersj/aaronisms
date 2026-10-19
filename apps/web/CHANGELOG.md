@@ -1,5 +1,11 @@
 # @aaronisms/web
 
+## 0.3.2
+
+### Patch Changes
+
+- 63b4e68: Change the favicon and Apple touch icon to the open banana from Microsoft Fluent Emoji.
+
 ## 0.3.1
 
 ### Patch Changes
