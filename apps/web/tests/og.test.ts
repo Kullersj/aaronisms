@@ -11,6 +11,7 @@ function entryWith(lines: Array<{ kind: 'line' | 'stage' | 'context'; text: stri
     status: 'published',
     imagePath: null,
     imageAlt: null,
+    noPreview: false,
     publishedAt: null,
     createdAt: '2026-01-01T00:00:00+00:00',
     lines: lines.map((line, i) => ({
@@ -30,6 +31,11 @@ describe('truncateText', () => {
     const cut = truncateText('one two three four five', 14);
     expect(cut).toBe('one two three…');
     expect(cut.length).toBeLessThanOrEqual(14);
+  });
+  it('counts code points, so an emoji is never split', () => {
+    const cut = truncateText('😀'.repeat(20), 10);
+    expect(cut).toBe(`${'😀'.repeat(9)}…`);
+    expect(() => encodeURIComponent(cut)).not.toThrow();
   });
   it('hard-cuts a single very long word', () => {
     expect(truncateText('a'.repeat(50), 10)).toBe(`${'a'.repeat(9)}…`);

@@ -22,3 +22,14 @@ export function slugForSpeaker(name: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 }
+
+/** Longest slug the site will look up. */
+export const MAX_SLUG_LENGTH = 100;
+
+/**
+ * Whether `value` can be an entry or speaker slug (`2026-10-12-1`, `college-3`, `mary-jo`).
+ * Lets pages reject anything else before it becomes a cache key.
+ */
+export function isSlug(value: string): boolean {
+  return value.length <= MAX_SLUG_LENGTH && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
+}

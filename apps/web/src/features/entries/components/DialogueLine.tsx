@@ -48,11 +48,13 @@ export function DialogueLine({ line, highlight }: DialogueLineProps) {
             href={`/speakers/${line.speaker.slug}`}
             className="focus-visible:ring-ring rounded-sm underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
           >
-            {line.speaker.name}:
+            <Marked text={line.speaker.name} terms={highlight} />:
           </Link>
         </strong>
       ) : line.speakerLabel ? (
-        <strong className="font-semibold">{line.speakerLabel}:</strong>
+        <strong className="font-semibold">
+          <Marked text={line.speakerLabel} terms={highlight} />:
+        </strong>
       ) : null}{' '}
       <em>
         <Marked text={line.text} terms={highlight} />

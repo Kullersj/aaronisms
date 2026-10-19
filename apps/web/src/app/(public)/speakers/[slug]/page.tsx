@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { isSlug } from '@aaronisms/db/slug';
 import { ArrowLeft } from 'lucide-react';
 import { EntryCard } from '@/features/entries/components/EntryCard';
 import { getSpeakerPage } from '@/features/speakers/queries';
@@ -12,7 +13,7 @@ type PageProps = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const page = await getSpeakerPage(slug);
+  const page = isSlug(slug) ? await getSpeakerPage(slug) : null;
   if (!page) return { title: 'Not found' };
   return {
     title: page.speaker.name,
@@ -22,7 +23,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function SpeakerPage({ params }: PageProps) {
   const { slug } = await params;
-  const page = await getSpeakerPage(slug);
+  const page = isSlug(slug) ? await getSpeakerPage(slug) : null;
   if (!page) notFound();
   const { speaker, entries } = page;
 

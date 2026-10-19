@@ -11,6 +11,7 @@ const row: EntryRow = {
   status: 'published',
   image_path: null,
   image_alt: null,
+  no_preview: false,
   published_at: '2026-01-06T12:05:00+00:00',
   created_at: '2026-01-06T11:00:00.123456+00:00',
   lines: [

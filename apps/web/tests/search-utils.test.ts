@@ -18,6 +18,7 @@ function entry(slug: string, speakers: Array<[string, string]>): Entry {
     status: 'published',
     imagePath: null,
     imageAlt: null,
+    noPreview: false,
     publishedAt: null,
     createdAt: '2026-01-01T00:00:00+00:00',
     lines: speakers.map(([name, slugOf], i) => ({
@@ -37,6 +38,15 @@ describe('normalizeQuery', () => {
     expect(normalizeQuery(['a', 'b'])).toBe('a');
     expect(normalizeQuery(undefined)).toBe('');
     expect(normalizeQuery('x'.repeat(500))).toHaveLength(200);
+  });
+  it('drops control characters that the database rejects', () => {
+    expect(normalizeQuery('big\u0000 pump\u0007kin')).toBe('big pumpkin');
+    expect(normalizeQuery('a\tb\nc')).toBe('a b c');
+  });
+  it('caps by code point, never splitting a surrogate pair', () => {
+    const cut = normalizeQuery('x'.repeat(199) + '😀😀');
+    expect(cut).toBe('x'.repeat(199) + '😀');
+    expect(() => encodeURIComponent(cut)).not.toThrow();
   });
 });
 
@@ -64,6 +74,20 @@ describe('highlightSegments', () => {
       { text: ' ', match: false },
       { text: '(really)', match: true },
     ]);
+  });
+  it('marks whole words only, not parts of longer words', () => {
+    expect(highlightSegments('Aaron ran, then Ron left', ['ron'])).toEqual([
+      { text: 'Aaron ran, then ', match: false },
+      { text: 'Ron', match: true },
+      { text: ' left', match: false },
+    ]);
+    expect(highlightSegments('pumpkins', ['pumpkin'])).toEqual([
+      { text: 'pumpkins', match: false },
+    ]);
+  });
+  it('treats accented letters as word characters', () => {
+    expect(highlightSegments('café', ['caf'])).toEqual([{ text: 'café', match: false }]);
+    expect(highlightSegments('un café!', ['café'])[1]).toEqual({ text: 'café', match: true });
   });
   it('returns the text untouched without terms or matches', () => {
     expect(highlightSegments('plain', [])).toEqual([{ text: 'plain', match: false }]);

@@ -34,17 +34,25 @@ function LiveSearchForm({ className }: SearchBoxProps) {
 
   const [value, setValue] = useState(urlQuery);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const lastPushed = useRef(urlQuery);
+  // Queries we navigated to whose URL has not come back yet, oldest first.
+  const pending = useRef<string[]>([]);
+  const settled = useRef(urlQuery);
 
-  // Follow the address bar (back button, a link) unless the change is our own debounced update.
+  // Follow the address bar (back button, a link), but not the echo of our own updates: a slow
+  // earlier navigation can commit after a newer one and must not reset what is being typed.
   useEffect(() => {
-    if (urlQuery !== lastPushed.current) {
-      lastPushed.current = urlQuery;
-      setValue(urlQuery);
+    settled.current = urlQuery;
+    const index = pending.current.lastIndexOf(urlQuery);
+    if (index !== -1) {
+      pending.current.splice(0, index + 1);
+      return;
     }
+    pending.current = [];
+    setValue(urlQuery);
   }, [urlQuery]);
 
-  useEffect(() => () => clearTimeout(timer.current), []);
+  // A pending update must not pull the visitor back to /search after they left it.
+  useEffect(() => () => clearTimeout(timer.current), [pathname]);
 
   function onChange(next: string) {
     setValue(next);
@@ -52,7 +60,8 @@ function LiveSearchForm({ className }: SearchBoxProps) {
     clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       const query = next.trim();
-      lastPushed.current = query;
+      if (query === (pending.current.at(-1) ?? settled.current)) return;
+      pending.current.push(query);
       router.replace(searchHref(query));
     }, DEBOUNCE_MS);
   }
@@ -60,9 +69,16 @@ function LiveSearchForm({ className }: SearchBoxProps) {
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     clearTimeout(timer.current);
-    const query = value.trim();
-    lastPushed.current = query;
-    router.push(searchHref(query));
+    const target = searchHref(value.trim());
+    const search = params.toString();
+    if (target === `${pathname}${search ? `?${search}` : ''}`) {
+      // Already here (the URL does not change, so there is no echo to wait for).
+      pending.current = [];
+      router.replace(target);
+      return;
+    }
+    pending.current.push(value.trim());
+    router.push(target);
   }
 
   return <SearchForm className={className} value={value} onChange={onChange} onSubmit={onSubmit} />;

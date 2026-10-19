@@ -3,10 +3,17 @@ import type { Entry } from '@aaronisms/db/schemas';
 /** Longest query we send to the database. */
 export const MAX_QUERY_LENGTH = 200;
 
-/** Clean up what the visitor typed: collapse whitespace and cap the length. */
+/**
+ * Clean up what the visitor typed: collapse whitespace, drop control characters (a NUL makes
+ * PostgREST fail) and cap the length by code point, so a surrogate pair is never split.
+ */
 export function normalizeQuery(raw: string | string[] | undefined): string {
   const value = Array.isArray(raw) ? (raw[0] ?? '') : (raw ?? '');
-  return value.replace(/\s+/g, ' ').trim().slice(0, MAX_QUERY_LENGTH);
+  const clean = value
+    .replace(/\s+/g, ' ')
+    .replace(/\p{Cc}/gu, '')
+    .trim();
+  return Array.from(clean).slice(0, MAX_QUERY_LENGTH).join('').trim();
 }
 
 /**
@@ -29,7 +36,10 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** Splits `text` into plain and matching parts, case-insensitively, for `<mark>` highlighting. */
+/**
+ * Splits `text` into plain and matching parts, case-insensitively, for `<mark>` highlighting.
+ * Only whole words match: `ron` does not mark the end of "Aaron".
+ */
 export function highlightSegments(text: string, terms: string[]): TextSegment[] {
   if (terms.length === 0) return [{ text, match: false }];
   // Longest first, so "pumpkin" wins over "pump" at the same position.
@@ -37,9 +47,10 @@ export function highlightSegments(text: string, terms: string[]): TextSegment[] 
     .sort((a, b) => b.length - a.length)
     .map(escapeRegExp)
     .join('|');
+  const wholeWord = `(?<![\\p{L}\\p{N}])(?:${pattern})(?![\\p{L}\\p{N}])`;
   const segments: TextSegment[] = [];
   let last = 0;
-  for (const match of text.matchAll(new RegExp(pattern, 'giu'))) {
+  for (const match of text.matchAll(new RegExp(wholeWord, 'giu'))) {
     if (match.index > last) segments.push({ text: text.slice(last, match.index), match: false });
     segments.push({ text: match[0], match: true });
     last = match.index + match[0].length;

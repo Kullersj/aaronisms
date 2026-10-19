@@ -7,7 +7,10 @@ const launchOptions = executablePath ? { executablePath } : {};
 
 // The journeys publish entries and sign in as the admin. They run last, so the public specs,
 // which expect exactly the seed data, never see their entries.
-const journeys = /journeys\//;
+const journeys = /journeys\/admin\.spec\.ts/;
+// Runs after the admin journey: each magic-link request replaces the default moderator's
+// one-time token, so sign-ins for that address must never overlap.
+const moderationJourney = /journeys\/moderation\.spec\.ts/;
 const setup = /auth\.setup\.ts/;
 
 export default defineConfig({
@@ -40,6 +43,13 @@ export default defineConfig({
       name: 'journeys',
       testMatch: journeys,
       dependencies: ['chromium', 'mobile-chrome', 'admin-setup'],
+      fullyParallel: false,
+      use: { ...devices['Desktop Chrome'], launchOptions },
+    },
+    {
+      name: 'journeys-moderation',
+      testMatch: moderationJourney,
+      dependencies: ['journeys'],
       fullyParallel: false,
       use: { ...devices['Desktop Chrome'], launchOptions },
     },

@@ -33,7 +33,10 @@ test.describe('search', () => {
 
     await search.chip(/^Everyone/).click();
     await expect(page).not.toHaveURL(/speaker=/);
+    // Back to the full list: more than the one entry the filter left, and as many as before.
+    await expect.poll(() => search.results.count()).toBeGreaterThan(1);
     await expect(search.results).toHaveCount(everyone);
+    await expect(search.summary).toHaveText(`${everyone} results for “Test Aaron”`);
   });
 
   test('shows a prompt without a query', async ({ page }) => {
@@ -63,7 +66,19 @@ test.describe('search', () => {
     const response = await search.goto('"unbalanced & | ( <b>x</b> :*');
     expect(response?.status()).toBe(200);
     await expect(page.locator('b', { hasText: 'x' })).toHaveCount(0);
+    await expect(search.heading).toBeVisible();
     await expect(page.getByText(/^No Aaronisms match/)).toBeVisible();
+    await expect(page.getByText('Something went wrong')).toHaveCount(0);
+  });
+
+  test('ignores a NUL character in the query', async ({ page }) => {
+    const search = new SearchPage(page);
+    const response = await page.goto('/search?q=pump%00kin');
+    expect(response?.status()).toBe(200);
+    await expect(search.heading).toBeVisible();
+    await expect(page.getByText('Something went wrong')).toHaveCount(0);
+    await expect(search.results).toHaveCount(1);
+    await expect(search.summary).toHaveText('1 result for “pumpkin”');
   });
 
   test('updates results as you type on the results page', async ({ page }) => {

@@ -52,6 +52,11 @@ export function formatStageDirection(text: string): string {
   return trimmed.startsWith('[') && trimmed.endsWith(']') ? trimmed : `[${trimmed}]`;
 }
 
+/** The description for link previews: generic when the entry opted out of quoting. */
+export function entryDescription(entry: Entry): string {
+  return entry.noPreview ? 'An Aaronism.' : entrySummary(entry);
+}
+
 /** A short plain-text summary for page metadata: the first spoken line, trimmed. */
 export function entrySummary(entry: Entry, maxLength = 160): string {
   const line = entry.lines.find((l) => l.kind === 'line') ?? entry.lines[0];

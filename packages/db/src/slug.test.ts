@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { slugForEntry, slugForSpeaker } from './slug';
+import { isSlug, slugForEntry, slugForSpeaker } from './slug';
 
 describe('slugForEntry', () => {
   it('combines the date with a per-day counter', () => {
@@ -27,5 +27,31 @@ describe('slugForSpeaker', () => {
 
   it('strips accents', () => {
     expect(slugForSpeaker('Zoë')).toBe('zoe');
+  });
+});
+
+describe('isSlug', () => {
+  it('accepts every slug the importer and database produce', () => {
+    expect(isSlug(slugForEntry('2026-10-12', 12))).toBe(true);
+    expect(isSlug(slugForEntry(null, 3))).toBe(true);
+    expect(isSlug(slugForSpeaker('Mary Jo  O’Neil-Smith'))).toBe(true);
+    expect(isSlug('test-aaron')).toBe(true);
+  });
+
+  it('rejects anything that cannot be a slug', () => {
+    for (const value of [
+      '',
+      'Upper',
+      'a b',
+      'a/b',
+      'a--b',
+      '-a',
+      'a-',
+      '%00',
+      'é',
+      'x'.repeat(101),
+    ]) {
+      expect(isSlug(value)).toBe(false);
+    }
   });
 });

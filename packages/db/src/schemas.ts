@@ -30,6 +30,8 @@ export const entrySchema = z.object({
   status: entryStatusSchema,
   imagePath: z.string().nullable(),
   imageAlt: z.string().nullable(),
+  /** True when the share card and link preview must not quote the entry. */
+  noPreview: z.boolean(),
   publishedAt: z.iso.datetime({ offset: true }).nullable(),
   createdAt: z.iso.datetime({ offset: true }),
   lines: z.array(entryLineSchema),

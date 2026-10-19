@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { isSlug } from '@aaronisms/db/slug';
 import { ArrowLeft } from 'lucide-react';
 import { CopyLinkButton } from '@/features/entries/components/CopyLinkButton';
 import { EntryCard } from '@/features/entries/components/EntryCard';
 import { getEntryBySlug } from '@/features/entries/queries';
-import { entrySummary, formatEntryDate } from '@/features/entries/utils';
+import { entryDescription, formatEntryDate } from '@/features/entries/utils';
 
 export const dynamic = 'force-dynamic';
 export const dynamicParams = true;
@@ -14,17 +15,17 @@ type PageProps = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const entry = await getEntryBySlug(slug);
+  const entry = isSlug(slug) ? await getEntryBySlug(slug) : null;
   if (!entry) return { title: 'Not found' };
   return {
     title: entry.saidOn ? formatEntryDate(entry.saidOn) : 'The College Years',
-    description: entrySummary(entry),
+    description: entryDescription(entry),
   };
 }
 
 export default async function EntryPage({ params }: PageProps) {
   const { slug } = await params;
-  const entry = await getEntryBySlug(slug);
+  const entry = isSlug(slug) ? await getEntryBySlug(slug) : null;
   if (!entry) notFound();
 
   return (

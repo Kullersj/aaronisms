@@ -12,38 +12,46 @@ export type SearchResultsProps = {
 };
 
 export function SearchResults({ query, entries, speakerSlug }: SearchResultsProps) {
-  if (!query) {
-    return (
-      <EmptyState
-        title="Search the Aaronisms"
-        description="Type a word, a phrase in quotes or a name in the box above."
-      />
-    );
-  }
-  if (entries.length === 0) {
-    return (
-      <EmptyState
-        title={`No Aaronisms match “${query}”`}
-        description="Try fewer or different words, or check the spelling."
-      />
-    );
-  }
-
   const facets = speakerFacets(entries);
   const active = facets.some((facet) => facet.slug === speakerSlug) ? speakerSlug : undefined;
   const shown = filterBySpeaker(entries, active);
   const terms = searchTerms(query);
+  const speakerName = facets.find((f) => f.slug === active)?.name;
+
+  // One region that always exists, so screen readers announce every change of the count.
+  const status = !query
+    ? ''
+    : entries.length === 0
+      ? `No results for “${query}”`
+      : `${shown.length} ${shown.length === 1 ? 'result' : 'results'} for “${query}”${speakerName ? ` by ${speakerName}` : ''}`;
 
   return (
     <div className="flex flex-col gap-4">
-      <SpeakerChips query={query} facets={facets} active={active} total={entries.length} />
-      <p role="status" className="text-muted-foreground text-sm">
-        {shown.length} {shown.length === 1 ? 'result' : 'results'} for “{query}”
-        {active ? ` by ${facets.find((f) => f.slug === active)?.name}` : ''}
+      <p
+        role="status"
+        aria-live="polite"
+        className={entries.length > 0 ? 'text-muted-foreground text-sm' : 'sr-only'}
+      >
+        {status}
       </p>
-      {shown.map((entry) => (
-        <EntryCard key={entry.id} entry={entry} headingLevel="h2" highlight={terms} />
-      ))}
+      {!query ? (
+        <EmptyState
+          title="Search the Aaronisms"
+          description="Type a word, a phrase in quotes or a name in the box above."
+        />
+      ) : entries.length === 0 ? (
+        <EmptyState
+          title={`No Aaronisms match “${query}”`}
+          description="Try fewer or different words, or check the spelling."
+        />
+      ) : (
+        <>
+          <SpeakerChips query={query} facets={facets} active={active} total={entries.length} />
+          {shown.map((entry) => (
+            <EntryCard key={entry.id} entry={entry} headingLevel="h2" highlight={terms} />
+          ))}
+        </>
+      )}
     </div>
   );
 }
