@@ -159,6 +159,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"delete_entry":
+{ Args: { "p_entry_id": string }; Returns: string
+                           },
 "entry_result":
 { Args: { "p_entry_id": string,"p_outcome": string }; Returns: Database["public"]['CompositeTypes']["moderation_result"]
                           SetofOptions: {

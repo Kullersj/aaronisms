@@ -131,6 +131,36 @@ test.describe('admin, signed in as the default moderator', () => {
     await expect.poll(() => feedShows(visitor, `Edited ${marker}`)).toBe(false);
   });
 
+  test('finds a published entry and deletes it', async ({ page, marker }) => {
+    const quote = `Delete me ${marker}`;
+    await submitPending(page, marker, quote);
+    const slug = (await findEntry(marker))?.slug ?? '';
+    await page.goto('/admin');
+    await queueItem(page, marker).getByRole('button', { name: 'Approve' }).click();
+    await expect(queueItem(page, marker)).toHaveCount(0);
+
+    await page
+      .getByRole('navigation', { name: 'Admin' })
+      .getByRole('link', { name: 'Entries' })
+      .click();
+    await page.getByLabel('Filter entries').fill(quote);
+    await page.getByRole('button', { name: 'Filter' }).click();
+    await page.getByRole('link', { name: `Edit entry ${slug}` }).click();
+
+    await page.getByText('Delete entry…').click();
+    await expect(page.getByText('This cannot be undone.')).toBeVisible();
+    expect((await findEntry(marker))?.status).toBe('published');
+    await page.getByRole('button', { name: 'Delete for good' }).click();
+    await expect(page).toHaveURL(/\/admin\/entries\?message=/);
+    await expect(page.getByText('Entry deleted.')).toBeVisible();
+
+    expect(await findEntry(marker)).toBeNull();
+    await new FeedPage(page).goto();
+    await expect(page.getByText(quote)).toHaveCount(0);
+    const permalink = await page.goto(`/a/${slug}`);
+    expect(permalink?.status()).toBe(404);
+  });
+
   test('renames and merges speakers', async ({ page, marker }) => {
     await submitPending(page, marker, `Speaker test ${marker}`);
     // Setup: a second speaker to merge into, which a visitor could only make with a submission.
@@ -183,6 +213,8 @@ test.describe('admin, everyone else', () => {
   test('a signed-out visitor is sent to the login page', async ({ page }) => {
     await page.goto('/admin');
     await expect(page).toHaveURL(/\/admin\/login/);
+    await page.goto('/admin/entries');
+    await expect(page).toHaveURL(/\/admin\/login/);
     await page.goto('/admin/speakers');
     await expect(page).toHaveURL(/\/admin\/login/);
   });
@@ -218,7 +250,7 @@ test.describe('admin, everyone else', () => {
     expect(created.error).toBeNull();
     try {
       await addPasswordSession(context, email, password);
-      for (const path of ['/admin', '/admin/speakers']) {
+      for (const path of ['/admin', '/admin/entries', '/admin/speakers']) {
         await page.goto(path);
         await expect(page).toHaveURL(/\/admin\/login\?error=forbidden/);
         await expect(page.getByText('That account is not allowed to use the admin.')).toBeVisible();
@@ -243,7 +275,7 @@ test.describe('admin, everyone else', () => {
     expect((await admin.auth.admin.updateUserById(user?.id ?? '', { password })).error).toBeNull();
 
     await addPasswordSession(context, defaultModerator, password);
-    for (const path of ['/admin', '/admin/speakers']) {
+    for (const path of ['/admin', '/admin/entries', '/admin/speakers']) {
       await page.goto(path);
       await expect(page).toHaveURL(/\/admin\/login\?error=forbidden/);
     }

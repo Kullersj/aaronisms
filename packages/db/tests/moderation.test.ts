@@ -295,6 +295,28 @@ describe('moderation functions', () => {
     ).not.toBeNull();
   });
 
+  it('deletes an entry with its lines and tokens, and keeps its speakers', async () => {
+    const kept = await submit();
+    const { id } = await submit();
+    await admin
+      .from('entries')
+      .update({ image_path: `${PREFIX}/photo.png` })
+      .eq('id', id);
+
+    const deleted = await admin.rpc('delete_entry', { p_entry_id: id });
+    expect(deleted).toMatchObject({ error: null, data: `${PREFIX}/photo.png` });
+    expect((await admin.from('entries').select('id').eq('id', id)).data).toEqual([]);
+    expect((await admin.from('entry_lines').select('id').eq('entry_id', id)).data).toEqual([]);
+    expect((await admin.from('moderation_tokens').select('id').eq('entry_id', id)).data).toEqual(
+      [],
+    );
+    expect((await admin.from('speakers').select('id').eq('id', speakerId)).data).toHaveLength(1);
+    expect((await entryRow(kept.id)).data?.status).toBe('pending');
+
+    const again = await admin.rpc('delete_entry', { p_entry_id: id });
+    expect(again.error?.code).toBe('P0002');
+  });
+
   it('does not let anon call any moderation function', async () => {
     const calls = [
       anon.rpc('decide_entry', {
@@ -314,6 +336,7 @@ describe('moderation functions', () => {
         p_lines: [],
       }),
       anon.rpc('merge_speakers', { p_from: speakerId, p_into: speakerId }),
+      anon.rpc('delete_entry', { p_entry_id: crypto.randomUUID() }),
       anon.rpc('consume_rate_limit', {
         p_bucket: `${PREFIX}:anon`,
         p_limit: 5,

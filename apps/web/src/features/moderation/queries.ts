@@ -1,6 +1,7 @@
 import 'server-only';
 import type { Entry } from '@aaronisms/db/schemas';
 import { toEntry, type EntryRow } from '@/features/entries/mappers';
+import { compareEntries } from '@/features/entries/utils';
 import { getServerEnv } from '@/lib/env';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hashToken, isTokenShaped } from './tokens';
@@ -48,6 +49,26 @@ export async function getPendingEntries(): Promise<ReviewEntry[]> {
     .order('created_at', { ascending: true });
   if (error) throw new Error(`Could not load the queue: ${error.message}`);
   return (data satisfies ReviewRow[]).map(toReviewEntry);
+}
+
+/** Rows per request; PostgREST caps a response at `max_rows` (1000), so larger reads are paged. */
+const PAGE_SIZE = 1000;
+
+/** Every entry whatever its status, newest first, for the admin. Service role: callers must authorise. */
+export async function getAllEntries(): Promise<ReviewEntry[]> {
+  const rows: ReviewRow[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await createAdminClient()
+      .from('entries')
+      .select(REVIEW_COLUMNS)
+      .order('created_at', { ascending: false })
+      .order('id')
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(`Could not load entries: ${error.message}`);
+    rows.push(...(data satisfies ReviewRow[]));
+    if (data.length < PAGE_SIZE) break;
+  }
+  return rows.map(toReviewEntry).sort(compareEntries);
 }
 
 /**
