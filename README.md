@@ -1,6 +1,6 @@
 # Aaronisms
 
-A collection of things said. A Next.js monorepo (pnpm workspaces + Turborepo) backed by Supabase. See the migration plan for the full design; this repo is at Phase 1 (schema and import).
+A collection of things said. A Next.js monorepo (pnpm workspaces + Turborepo) backed by Supabase. See the migration plan for the full design; this repo is at Phase 2 (public UI).
 
 ## Setup
 
@@ -14,7 +14,7 @@ mise run setup      # pnpm install, start local Supabase, generate DB types
 Without mise, use Node >= 22 and pnpm 10.28 (`corepack enable`), then `pnpm install`. Copy `.env.example` to `.env.local` and fill in the values.
 
 ```sh
-pnpm dev            # run the site at http://localhost:3000
+pnpm dev            # run the site at http://localhost:3000 (needs local Supabase, see below)
 pnpm build          # production build
 pnpm lint && pnpm typecheck && pnpm test
 pnpm e2e            # Playwright against the built app (builds web first)
@@ -22,6 +22,24 @@ pnpm format         # prettier
 ```
 
 For `pnpm e2e` on a fresh machine, install a browser once with `pnpm --filter @aaronisms/e2e exec playwright install chromium`. Set `BASE_URL` to test an already-running deployment, or `PW_CHROMIUM_PATH` to use an existing Chromium binary.
+
+### Running the site locally
+
+The public pages read published entries from Supabase at request time, so start the local stack first and point the site at it. `pnpm build` itself needs no env vars; the pages simply show an error until the two variables are set.
+
+```sh
+cd packages/db && pnpm exec supabase start && cd ../..   # applies migrations and the made-up seed
+cd packages/db && pnpm exec supabase status -o env       # API_URL and ANON_KEY
+```
+
+Put them in `apps/web/.env.local` (gitignored), then `pnpm dev`:
+
+```sh
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<ANON_KEY>
+```
+
+`pnpm e2e` needs the same two variables in the environment, plus the local stack running. Image hosts for `next/image` are derived from `NEXT_PUBLIC_SUPABASE_URL` at build time, so rebuild after changing it. Data is cached under the `entries` and `memes` tags; later phases call `revalidateTag` to refresh it.
 
 ## Packages
 

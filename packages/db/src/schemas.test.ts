@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { newSubmissionSchema } from './schemas';
+import { memeSchema, newSubmissionSchema } from './schemas';
 
 describe('newSubmissionSchema', () => {
   it('defaults the date to today and the line kind to line', () => {
@@ -30,5 +30,18 @@ describe('newSubmissionSchema', () => {
     expect(newSubmissionSchema.safeParse({ lines, image: pdf }).success).toBe(false);
     const png = new File(['x'], 'a.png', { type: 'image/png' });
     expect(newSubmissionSchema.safeParse({ lines, image: png }).success).toBe(true);
+  });
+});
+
+describe('memeSchema', () => {
+  it('accepts a meme with or without a caption', () => {
+    const base = {
+      id: '20000000-0000-4000-8000-000000000001',
+      imagePath: 'memes/a.png',
+      createdAt: '2026-01-06T12:00:00+00:00',
+    };
+    expect(memeSchema.safeParse({ ...base, caption: null }).success).toBe(true);
+    expect(memeSchema.safeParse({ ...base, caption: 'Hi' }).success).toBe(true);
+    expect(memeSchema.safeParse({ ...base, imagePath: '', caption: null }).success).toBe(false);
   });
 });

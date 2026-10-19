@@ -1,8 +1,20 @@
-export default function HomePage() {
+import { EmptyState } from '@/components/layout/EmptyState';
+import { EntryFeed } from '@/features/entries/components/EntryFeed';
+import { getPublishedEntries } from '@/features/entries/queries';
+
+// Data comes from Supabase at request time (then the data cache), never at build time.
+export const dynamic = 'force-dynamic';
+
+export default async function HomePage() {
+  const entries = await getPublishedEntries();
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center gap-2 p-4 text-center">
-      <h1 className="text-4xl font-bold tracking-tight">Aaronisms</h1>
-      <p className="text-muted-foreground">Peruse at risk</p>
-    </main>
+    <>
+      <h1 className="sr-only">All Aaronisms</h1>
+      {entries.length > 0 ? (
+        <EntryFeed entries={entries} />
+      ) : (
+        <EmptyState title="Nothing here yet" description="Check back soon." />
+      )}
+    </>
   );
 }

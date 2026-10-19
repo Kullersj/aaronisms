@@ -15,7 +15,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0 # keep in step with mise.toml
       - run: pnpm install --frozen-lockfile
+      # Starts the database, REST API and Storage that the site reads; migrations and seed.sql apply.
+      - run: supabase start -x realtime,imgproxy,studio,edge-runtime,logflare,vector,supavisor,mailpit
+        working-directory: packages/db
+      - name: Export local Supabase credentials for the site
+        working-directory: packages/db
+        run: |
+          eval "$(supabase status -o env | grep -E '^(API_URL|ANON_KEY)=')"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+          } >> "$GITHUB_ENV"
       - run: pnpm exec playwright install --with-deps chromium
         working-directory: packages/e2e
       - run: pnpm e2e

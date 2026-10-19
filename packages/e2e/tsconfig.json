@@ -1,5 +1,5 @@
 {
   "extends": "@aaronisms/config/tsconfig/base.json",
-  "compilerOptions": { "types": ["node"] },
+  "compilerOptions": { "types": ["node"], "lib": ["ES2023", "DOM"] },
   "include": ["**/*.ts"]
 }

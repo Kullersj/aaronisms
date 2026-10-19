@@ -36,12 +36,20 @@ export const entrySchema = z.object({
   lines: z.array(entryLineSchema),
 });
 
+export const memeSchema = z.object({
+  id: z.uuid(),
+  imagePath: z.string().min(1),
+  caption: z.string().nullable(),
+  createdAt: z.iso.datetime({ offset: true }),
+});
+
 export type EntryStatus = z.infer<typeof entryStatusSchema>;
 export type EntryEra = z.infer<typeof entryEraSchema>;
 export type LineKind = z.infer<typeof lineKindSchema>;
 export type Speaker = z.infer<typeof speakerSchema>;
 export type EntryLine = z.infer<typeof entryLineSchema>;
 export type Entry = z.infer<typeof entrySchema>;
+export type Meme = z.infer<typeof memeSchema>;
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
