@@ -2,6 +2,7 @@
 
 import { revalidateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { z } from 'zod';
 import { slugForSpeaker } from '@aaronisms/db/slug';
 import { ENTRIES_TAG } from '@/features/entries/queries';
 import { requireAdmin } from '@/lib/auth';
@@ -24,13 +25,18 @@ export async function renameSpeaker(formData: FormData): Promise<void> {
   const slug = slugForSpeaker(name);
   if (!slug || name.length > MAX_NAME_LENGTH) back('Enter a name of up to 60 characters.');
 
-  const { error } = await createAdminClient()
+  const speakerId = field(formData, 'speakerId');
+  if (!z.uuid().safeParse(speakerId).success) back('That speaker no longer exists.');
+
+  const { data, error } = await createAdminClient()
     .from('speakers')
     .update({ name, slug })
-    .eq('id', field(formData, 'speakerId'));
+    .eq('id', speakerId)
+    .select('id');
   if (error?.code === '23505')
     back(`Another speaker is already called ${name}. Merge them instead.`);
   if (error) throw new Error(`Could not rename the speaker: ${error.message}`);
+  if (!data.length) back('That speaker no longer exists.');
 
   revalidateTag(ENTRIES_TAG, { expire: 0 });
   back(`Renamed to ${name}.`);

@@ -62,16 +62,17 @@ export function SpeakerCombobox({
             onValueChange={setQuery}
           />
           <CommandList>
-            {matches.slice(0, MAX_SUGGESTIONS).map((name) => (
-              <CommandItem key={name} value={name} onSelect={() => choose(name)}>
-                {name}
-              </CommandItem>
-            ))}
+            {/* First, so Enter adds exactly what was typed unless it already matches a speaker. */}
             {isNew ? (
               <CommandItem value={`add:${typed}`} onSelect={() => choose(typed)}>
                 Add “{typed}”
               </CommandItem>
             ) : null}
+            {matches.slice(0, MAX_SUGGESTIONS).map((name) => (
+              <CommandItem key={name} value={name} onSelect={() => choose(name)}>
+                {name}
+              </CommandItem>
+            ))}
           </CommandList>
         </Command>
       </PopoverContent>

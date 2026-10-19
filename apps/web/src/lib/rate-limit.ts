@@ -14,12 +14,15 @@ export const RATE_LIMITS = {
 } satisfies Record<string, RateLimitPolicy>;
 
 /**
- * The visitor's IP address, or null when it cannot be determined. Behind Vercel the first
- * `x-forwarded-for` entry is the real client address (the platform overwrites any client value).
+ * The visitor's IP address, or null when it cannot be determined. Behind Vercel the platform sets
+ * `x-vercel-forwarded-for` (and overwrites any client value), so it is preferred; the others cover
+ * other hosts and local runs.
  */
 export function getClientIp(headers: Pick<Headers, 'get'>): string | null {
-  const forwarded = headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-  const ip = forwarded || headers.get('x-real-ip')?.trim();
+  const ip =
+    headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim() ||
+    headers.get('x-real-ip')?.trim() ||
+    headers.get('x-forwarded-for')?.split(',')[0]?.trim();
   return ip && isIP(ip) ? ip : null;
 }
 

@@ -11,6 +11,19 @@ import { createAdminClient } from '@/lib/supabase/admin';
 const headers = (values: Record<string, string>) => new Headers(values);
 
 describe('getClientIp', () => {
+  it('prefers x-vercel-forwarded-for, then x-real-ip, then x-forwarded-for', () => {
+    const all = {
+      'x-vercel-forwarded-for': '198.51.100.1',
+      'x-real-ip': '198.51.100.2',
+      'x-forwarded-for': '198.51.100.3',
+    };
+    expect(getClientIp(headers(all))).toBe('198.51.100.1');
+    expect(getClientIp(headers({ ...all, 'x-vercel-forwarded-for': '' }))).toBe('198.51.100.2');
+    expect(getClientIp(headers({ 'x-forwarded-for': '198.51.100.3, 10.0.0.1' }))).toBe(
+      '198.51.100.3',
+    );
+  });
+
   it('uses the first x-forwarded-for entry', () => {
     expect(getClientIp(headers({ 'x-forwarded-for': '203.0.113.5, 10.0.0.1' }))).toBe(
       '203.0.113.5',

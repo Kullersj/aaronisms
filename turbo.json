@@ -12,6 +12,9 @@
     },
     "lint": {},
     "typecheck": {},
+    "@aaronisms/web#typecheck": {
+      "dependsOn": ["@aaronisms/web#build"]
+    },
     "test": {
       "passThroughEnv": [
         "SUPABASE_URL",

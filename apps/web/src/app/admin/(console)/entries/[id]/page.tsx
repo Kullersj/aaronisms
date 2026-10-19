@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { z } from 'zod';
 import { AdminEntryForm } from '@/features/admin/components/AdminEntryForm';
 import { getEntryForReview } from '@/features/moderation/queries';
 import { entryToEditValues } from '@/features/submissions/lines';
@@ -11,6 +12,7 @@ type PageProps = { params: Promise<{ id: string }> };
 export default async function AdminEntryPage({ params }: PageProps) {
   await requireAdmin();
   const { id } = await params;
+  if (!z.uuid().safeParse(id).success) notFound();
   const entry = await getEntryForReview(id);
   if (!entry) notFound();
   return (

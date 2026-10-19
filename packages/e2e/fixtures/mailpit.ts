@@ -29,11 +29,13 @@ export async function waitForMagicLink(to: string, since: Date): Promise<string>
   return link as string;
 }
 
-/** How many emails Mailpit holds for an address; used to prove none were sent. */
-export async function countEmailsTo(to: string): Promise<number> {
-  const search = await fetch(
-    `${MAILPIT_URL}/api/v1/search?query=${encodeURIComponent(`to:${to}`)}`,
-  );
+/**
+ * How many sign-in emails Mailpit holds for an address; used to prove none were sent. Only the
+ * magic-link subject counts, so moderation emails to the same address cannot disturb it.
+ */
+export async function countSignInEmailsTo(to: string): Promise<number> {
+  const query = encodeURIComponent(`to:${to} subject:"sign-in link"`);
+  const search = await fetch(`${MAILPIT_URL}/api/v1/search?query=${query}`);
   return ((await search.json()) as { messages_count: number }).messages_count;
 }
 

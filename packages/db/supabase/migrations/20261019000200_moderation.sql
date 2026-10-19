@@ -54,10 +54,10 @@ language plpgsql
 set search_path = ''
 as $$
 declare
-  next_n int;
+  next_n bigint;
 begin
   perform pg_advisory_xact_lock(hashtext('entry-slug:' || p_date::text));
-  select coalesce(max((regexp_match(slug, '-(\d+)$'))[1]::int), 0) + 1
+  select coalesce(max((regexp_match(slug, '-(\d+)$'))[1]::bigint), 0) + 1
   into next_n
   from public.entries
   where said_on = p_date;
@@ -156,7 +156,7 @@ security definer
 set search_path = ''
 as $$
 begin
-  if p_from = p_into then
+  if p_into is null or p_from = p_into then
     raise exception 'Cannot merge a speaker into itself' using errcode = '22023';
   end if;
   update public.entry_lines set speaker_id = p_into where speaker_id = p_from;

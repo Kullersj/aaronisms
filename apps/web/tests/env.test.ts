@@ -90,4 +90,44 @@ describe('parseServerEnv', () => {
       /NEXT_PUBLIC_SUPABASE_URL.*SUPABASE_SERVICE_ROLE_KEY.*SITE_URL.*MODERATOR_EMAILS/,
     );
   });
+
+  describe('on the live Vercel deployment', () => {
+    const live = {
+      ...base,
+      RESEND_API_KEY: 're_123',
+      TURNSTILE_SECRET_KEY: '0x4AAAAAAAreal',
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: '0x4AAAAAAAreal',
+      VERCEL_ENV: 'production',
+    };
+
+    it('accepts real Turnstile keys and Resend', () => {
+      expect(parseServerEnv(live).email.transport).toBe('resend');
+    });
+
+    it('rejects the Turnstile test secret and site key', () => {
+      expect(() =>
+        parseServerEnv({ ...live, TURNSTILE_SECRET_KEY: '1x0000000000000000000000000000000AA' }),
+      ).toThrow(/TURNSTILE_SECRET_KEY: .*test secret/);
+      expect(() =>
+        parseServerEnv({ ...live, NEXT_PUBLIC_TURNSTILE_SITE_KEY: '1x00000000000000000000AA' }),
+      ).toThrow(/NEXT_PUBLIC_TURNSTILE_SITE_KEY: .*test key/);
+    });
+
+    it('rejects the SMTP transport', () => {
+      expect(() => parseServerEnv({ ...live, EMAIL_TRANSPORT: 'smtp' })).toThrow(
+        /EMAIL_TRANSPORT: smtp is for local testing/,
+      );
+    });
+
+    it('still allows all of them outside production', () => {
+      const env = parseServerEnv({
+        ...live,
+        VERCEL_ENV: 'preview',
+        TURNSTILE_SECRET_KEY: '1x0000000000000000000000000000000AA',
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: '1x00000000000000000000AA',
+        EMAIL_TRANSPORT: 'smtp',
+      });
+      expect(env.email.transport).toBe('smtp');
+    });
+  });
 });

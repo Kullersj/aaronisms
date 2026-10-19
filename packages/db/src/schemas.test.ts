@@ -8,6 +8,20 @@ describe('newSubmissionSchema', () => {
     expect(parsed.lines[0]).toEqual({ speaker: 'Test Aaron', text: 'Hi', kind: 'line' });
   });
 
+  it('accepts dates from 1990 to tomorrow (UTC) only', () => {
+    const lines = [{ speaker: 'A', text: 'B' }];
+    const on = (offsetDays: number) =>
+      new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const ok = (saidOn: string) => newSubmissionSchema.safeParse({ lines, saidOn }).success;
+    expect(ok('1990-01-01')).toBe(true);
+    expect(ok('1989-12-31')).toBe(false);
+    expect(ok('0001-01-01')).toBe(false);
+    expect(ok(on(0))).toBe(true);
+    expect(ok(on(1))).toBe(true);
+    expect(ok(on(2))).toBe(false);
+    expect(ok('9999-12-31')).toBe(false);
+  });
+
   it('requires at least one line', () => {
     expect(newSubmissionSchema.safeParse({ lines: [] }).success).toBe(false);
   });

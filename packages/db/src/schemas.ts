@@ -53,7 +53,13 @@ export type Meme = z.infer<typeof memeSchema>;
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
+/** Hidden spam-trap field of the submit form. Its name means nothing, so bots cannot guess to skip it. */
+export const HONEYPOT_FIELD = 'q7x_f2k';
+
 const todayUtc = () => new Date().toISOString().slice(0, 10);
+/** Allows one day past UTC today, so a visitor ahead of UTC can still submit their own today. */
+const tomorrowUtc = () => new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+const EARLIEST_SAID_ON = '1990-01-01';
 
 export const newSubmissionLineSchema = z
   .object({
@@ -70,7 +76,10 @@ const contextSchema = z.string().trim().max(200).optional();
 const linesSchema = z.array(newSubmissionLineSchema).min(1, 'Add at least one line').max(30);
 
 export const newSubmissionSchema = z.object({
-  saidOn: z.iso.date().default(todayUtc),
+  saidOn: z.iso
+    .date()
+    .refine((date) => date >= EARLIEST_SAID_ON && date <= tomorrowUtc(), 'Pick a recent date')
+    .default(todayUtc),
   context: contextSchema,
   lines: linesSchema,
   submittedBy: z.string().trim().max(80).optional(),

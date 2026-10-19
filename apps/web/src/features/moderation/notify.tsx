@@ -15,6 +15,16 @@ export function moderationUrl(
   return `${siteUrl}/moderate/${token}?action=${action}`;
 }
 
+/** Emails the default moderator that something failed behind the scenes. Throws if it cannot send. */
+export async function alertDefaultModerator(title: string, details: string) {
+  const env = getServerEnv();
+  await sendEmail(env.email, {
+    to: env.defaultModerator,
+    subject: title,
+    react: <AlertEmail title={title} details={details} />,
+  });
+}
+
 /**
  * Emails every moderator about a new submission. Failures are logged and reported to the default
  * moderator rather than thrown, because this runs after the submitter already got their response.
@@ -52,14 +62,8 @@ export async function notifyModerators(entry: ReviewEntry, tokens: ModerationTok
     entry: entry.slug,
     failed: failed.map((t) => t.email),
   });
-  await sendEmail(env.email, {
-    to: env.defaultModerator,
-    subject: 'Moderation email failed',
-    react: (
-      <AlertEmail
-        title="Moderation email failed"
-        details={`A new submission (${entry.slug}) could not be emailed to: ${failed.map((t) => t.email).join(', ')}.\n\nIt is waiting in the admin queue.`}
-      />
-    ),
-  }).catch((error: unknown) => console.error('Could not send the failure alert', error));
+  await alertDefaultModerator(
+    'Moderation email failed',
+    `A new submission (${entry.slug}) could not be emailed to: ${failed.map((t) => t.email).join(', ')}.\n\nIt is waiting in the admin queue.`,
+  ).catch((error: unknown) => console.error('Could not send the failure alert', error));
 }

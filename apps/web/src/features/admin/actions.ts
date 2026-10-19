@@ -41,10 +41,16 @@ export async function requestMagicLink(
     return { message: 'Too many attempts. Please try again later.' };
   }
   if (email === env.defaultModerator) {
+    // Sign-up is off, so the admin's account is created here, with the service role.
+    const created = await createAdminClient().auth.admin.createUser({ email, email_confirm: true });
+    if (created.error && created.error.code !== 'email_exists') {
+      console.error('Could not create the admin account', created.error);
+      return { message: 'We could not send the link. Please try again.' };
+    }
     const supabase = await createSessionClient();
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${env.siteUrl}/auth/callback` },
+      options: { emailRedirectTo: `${env.siteUrl}/auth/callback`, shouldCreateUser: false },
     });
     if (error) return { message: 'We could not send the link. Please try again.' };
   }
@@ -108,42 +114,68 @@ export async function saveEntry(entryId: string, formData: FormData): Promise<Sa
 
   const client = createAdminClient();
   const upload = formData.get('image');
+  let uploaded: string | null = null;
   let imagePath = removeImage ? null : current.imagePath;
   if (upload instanceof File && upload.size > 0) {
-    imagePath = await uploadReplacement(entryId, upload);
-    if (!imagePath) return { ok: false, message: 'That file is not a supported image.' };
+    uploaded = await uploadReplacement(entryId, upload);
+    if (!uploaded) return { ok: false, message: 'That file is not a supported image.' };
+    imagePath = uploaded;
   }
+  // Puts the photo columns back and drops the new file; used when the save fails after the photo.
+  const undoImage = async () => {
+    await client
+      .from('entries')
+      .update({ image_path: current.imagePath, image_alt: current.imageAlt })
+      .eq('id', entryId);
+    if (uploaded) await client.storage.from(IMAGE_BUCKET).remove([uploaded]);
+  };
   const imageUpdate = await client
     .from('entries')
     .update({ image_path: imagePath, image_alt: imageAlt || null })
     .eq('id', entryId);
-  if (imageUpdate.error) throw new Error(`Could not save the photo: ${imageUpdate.error.message}`);
-  if (current.imagePath && current.imagePath !== imagePath) {
-    await client.storage.from(IMAGE_BUCKET).remove([current.imagePath]);
+  if (imageUpdate.error) {
+    if (uploaded) await client.storage.from(IMAGE_BUCKET).remove([uploaded]);
+    throw new Error(`Could not save the photo: ${imageUpdate.error.message}`);
   }
 
-  if (current.status === 'pending' && intent === 'approve') {
-    await decideAsAdmin(entryId, admin.email, { kind: 'approve' }, edit);
-  } else {
-    const speakerIds = await resolveSpeakerIds(client, edit.lines);
-    const { error } = await client.rpc('apply_entry_edits', {
-      p_entry_id: entryId,
-      p_said_on: edit.saidOn ?? undefined,
-      p_lines: buildLinePayload(edit, speakerIds),
-    });
-    if (error) throw new Error(`Could not save the entry: ${error.message}`);
-    if (current.status !== 'pending' && status !== current.status) {
-      const { error: statusError } = await client
-        .from('entries')
-        .update({
-          status,
-          reviewed_by_email: admin.email,
-          published_at:
-            status === 'published' ? (current.publishedAt ?? new Date().toISOString()) : null,
-        })
-        .eq('id', entryId);
-      if (statusError) throw new Error(`Could not change the status: ${statusError.message}`);
+  try {
+    if (current.status === 'pending' && intent === 'approve') {
+      const outcome = await decideAsAdmin(entryId, admin.email, { kind: 'approve' }, edit);
+      if (outcome !== 'decided') {
+        await undoImage();
+        return {
+          ok: false,
+          message: 'Someone else already decided this entry, so nothing was saved.',
+        };
+      }
+    } else {
+      const speakerIds = await resolveSpeakerIds(client, edit.lines);
+      const { error } = await client.rpc('apply_entry_edits', {
+        p_entry_id: entryId,
+        p_said_on: edit.saidOn ?? undefined,
+        p_lines: buildLinePayload(edit, speakerIds),
+      });
+      if (error) throw new Error(`Could not save the entry: ${error.message}`);
+      if (current.status !== 'pending' && status !== current.status) {
+        const { error: statusError } = await client
+          .from('entries')
+          .update({
+            status,
+            reviewed_by_email: admin.email,
+            published_at:
+              status === 'published' ? (current.publishedAt ?? new Date().toISOString()) : null,
+          })
+          .eq('id', entryId);
+        if (statusError) throw new Error(`Could not change the status: ${statusError.message}`);
+      }
     }
+  } catch (error) {
+    await undoImage();
+    throw error;
+  }
+  // Only now that the entry is saved is the old photo safe to delete.
+  if (current.imagePath && current.imagePath !== imagePath) {
+    await client.storage.from(IMAGE_BUCKET).remove([current.imagePath]);
   }
 
   revalidateTag(ENTRIES_TAG, { expire: 0 });

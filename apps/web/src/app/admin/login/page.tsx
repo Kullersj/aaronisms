@@ -18,7 +18,7 @@ export default async function AdminLoginPage({ searchParams }: PageProps) {
       <p className="text-muted-foreground mb-4">
         Day-to-day moderation happens from the emails. This is the fallback.
       </p>
-      <LoginForm error={error ? ERRORS[error] : undefined} />
+      <LoginForm error={error && Object.hasOwn(ERRORS, error) ? ERRORS[error] : undefined} />
     </PageShell>
   );
 }

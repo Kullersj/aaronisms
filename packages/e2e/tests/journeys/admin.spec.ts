@@ -1,15 +1,32 @@
 import { createClient } from '@supabase/supabase-js';
-import { expect as baseExpect, type Page } from '@playwright/test';
+import { expect as baseExpect, type BrowserContext, type Page } from '@playwright/test';
 import type { Database } from '@aaronisms/db/database.types';
 import { findEntry, serviceClient } from '../../fixtures/db';
 import { ADMIN_STATE, moderators, requireEnv } from '../../fixtures/env';
 import { signInAsAdmin } from '../../fixtures/admin';
-import { countEmailsTo } from '../../fixtures/mailpit';
+import { countSignInEmailsTo } from '../../fixtures/mailpit';
 import { test, expect } from '../../fixtures/test';
 import { FeedPage } from '../../pages/FeedPage';
 import { SubmitPage } from '../../pages/SubmitPage';
 
 const [, second] = moderators();
+
+/** Signs in with a password through the API and hands the session to the browser as its cookie. */
+async function addPasswordSession(context: BrowserContext, email: string, password: string) {
+  const url = requireEnv('SUPABASE_URL');
+  const anon = createClient<Database>(url, requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'), {
+    auth: { persistSession: false },
+  });
+  const { data } = await anon.auth.signInWithPassword({ email, password });
+  const session = Buffer.from(JSON.stringify(data.session)).toString('base64url');
+  await context.addCookies([
+    {
+      name: `sb-${new URL(url).hostname.split('.')[0]}-auth-token`,
+      value: `base64-${session}`,
+      url: process.env.BASE_URL ?? 'http://localhost:3000',
+    },
+  ]);
+}
 
 async function submitPending(page: Page, marker: string, text: string) {
   const submit = new SubmitPage(page);
@@ -122,9 +139,9 @@ test.describe('admin, signed in as the default moderator', () => {
 });
 
 test.describe('admin, everyone else', () => {
-  test('signing out ends that session only', async ({ browser }) => {
+  test('signing out ends that session only', async ({ browser, clientIpHeaders }) => {
     // Its own sign-in, so signing out cannot end the session the other tests share.
-    const context = await browser.newContext();
+    const context = await browser.newContext({ extraHTTPHeaders: clientIpHeaders });
     const page = await context.newPage();
     await signInAsAdmin(page);
     await page.getByRole('button', { name: 'Sign out' }).click();
@@ -142,14 +159,14 @@ test.describe('admin, everyone else', () => {
   });
 
   test('a moderator who is not the default gets no sign-in link', async ({ page }) => {
-    const before = await countEmailsTo(second);
+    const before = await countSignInEmailsTo(second);
     await page.goto('/admin/login');
     await page.getByLabel('Email address').fill(second);
     await page.getByRole('button', { name: 'Email me a sign-in link' }).click();
     // The reply is the same as for the real admin, so the form reveals nothing.
     await expect(page.getByText('a link is on its way')).toBeVisible();
     await baseExpect
-      .poll(async () => countEmailsTo(second), { timeout: 3000, intervals: [1000] })
+      .poll(async () => countSignInEmailsTo(second), { timeout: 3000, intervals: [1000] })
       .toBe(before);
   });
 
@@ -157,26 +174,13 @@ test.describe('admin, everyone else', () => {
     page,
     context,
   }) => {
-    const url = requireEnv('SUPABASE_URL');
     const admin = serviceClient();
     const email = `outsider-${crypto.randomUUID().slice(0, 8)}@example.com`;
     const password = crypto.randomUUID();
     const created = await admin.auth.admin.createUser({ email, password, email_confirm: true });
     expect(created.error).toBeNull();
     try {
-      const anon = createClient<Database>(url, requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'), {
-        auth: { persistSession: false },
-      });
-      const { data } = await anon.auth.signInWithPassword({ email, password });
-      const session = Buffer.from(JSON.stringify(data.session)).toString('base64url');
-      await context.addCookies([
-        {
-          name: `sb-${new URL(url).hostname.split('.')[0]}-auth-token`,
-          value: `base64-${session}`,
-          url: process.env.BASE_URL ?? 'http://localhost:3000',
-        },
-      ]);
-
+      await addPasswordSession(context, email, password);
       for (const path of ['/admin', '/admin/speakers']) {
         await page.goto(path);
         await expect(page).toHaveURL(/\/admin\/login\?error=forbidden/);
@@ -184,6 +188,27 @@ test.describe('admin, everyone else', () => {
       }
     } finally {
       await admin.auth.admin.deleteUser(created.data.user?.id ?? '');
+    }
+  });
+
+  test('a password session for the admin address is not an admin session', async ({
+    page,
+    context,
+  }) => {
+    // Only a magic link proves control of the inbox. The admin account already exists from the
+    // shared sign-in; give it a throwaway password and sign in with that instead.
+    const admin = serviceClient();
+    const [defaultModerator = ''] = moderators();
+    const { data } = await admin.auth.admin.listUsers({ perPage: 1000 });
+    const user = data.users.find((candidate) => candidate.email === defaultModerator);
+    expect(user).toBeDefined();
+    const password = crypto.randomUUID();
+    expect((await admin.auth.admin.updateUserById(user?.id ?? '', { password })).error).toBeNull();
+
+    await addPasswordSession(context, defaultModerator, password);
+    for (const path of ['/admin', '/admin/speakers']) {
+      await page.goto(path);
+      await expect(page).toHaveURL(/\/admin\/login\?error=forbidden/);
     }
   });
 });

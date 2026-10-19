@@ -32,6 +32,17 @@ describe('verifyTurnstile', () => {
     expect(await verifyTurnstile('token', 'secret', null, respond({}))).toBe(false);
   });
 
+  it('gives up on a slow Cloudflare', async () => {
+    const fetchImpl = respond({ success: true });
+    await verifyTurnstile('token', 'secret', null, fetchImpl);
+    const [, init] = vi.mocked(fetchImpl).mock.calls[0] ?? [];
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
+    const timedOut = vi.fn().mockRejectedValue(new DOMException('timed out', 'TimeoutError'));
+    expect(
+      await verifyTurnstile('token', 'secret', null, timedOut as unknown as typeof fetch),
+    ).toBe(false);
+  });
+
   it('fails closed on HTTP errors and network failures', async () => {
     expect(await verifyTurnstile('token', 'secret', null, respond({ success: true }, false))).toBe(
       false,

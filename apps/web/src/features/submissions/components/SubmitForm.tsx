@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Turnstile } from '@marsidev/react-turnstile';
 import { toast } from 'sonner';
 import {
+  HONEYPOT_FIELD,
   IMAGE_TYPES,
   newSubmissionSchema,
   type NewSubmission,
@@ -54,24 +55,32 @@ export function SubmitForm({ speakers, turnstileSiteKey }: SubmitFormProps) {
   const [serverError, setServerError] = useState<string>();
   // Bumping the key remounts the widget, which fetches a fresh single-use token.
   const [captchaKey, setCaptchaKey] = useState(0);
+  // Likewise for the file input, which has no other way to be emptied.
+  const [fileKey, setFileKey] = useState(0);
 
   async function onSubmit({ image, ...fields }: NewSubmission, event?: BaseSyntheticEvent) {
     setServerError(undefined);
     const data = new FormData();
     data.set('payload', JSON.stringify(fields));
     if (image) data.set('image', image);
-    data.set('website', new FormData(event?.target).get('website') ?? '');
+    data.set(HONEYPOT_FIELD, new FormData(event?.target).get(HONEYPOT_FIELD) ?? '');
     data.set('turnstileToken', captcha);
 
-    const result = await submitEntry(data);
-    // A Turnstile token works once, so get a fresh one whatever happened.
-    setCaptcha('');
-    setCaptchaKey((key) => key + 1);
-    if (result.ok) {
-      toast.success("Thanks, it's been sent for review.");
-      reset(emptyForm());
-    } else {
-      setServerError(result.message);
+    try {
+      const result = await submitEntry(data);
+      if (result.ok) {
+        toast.success("Thanks, it's been sent for review.");
+        reset(emptyForm());
+        setFileKey((key) => key + 1);
+      } else {
+        setServerError(result.message);
+      }
+    } catch {
+      toast.error('Something went wrong. Please try again.');
+    } finally {
+      // A Turnstile token works once, so get a fresh one whatever happened.
+      setCaptcha('');
+      setCaptchaKey((key) => key + 1);
     }
   }
 
@@ -84,6 +93,7 @@ export function SubmitForm({ speakers, turnstileSiteKey }: SubmitFormProps) {
           <Label htmlFor="image">Photo (optional)</Label>
           <Input
             id="image"
+            key={fileKey}
             type="file"
             accept={IMAGE_TYPES.join(',')}
             className="h-auto py-2"
@@ -103,8 +113,8 @@ export function SubmitForm({ speakers, turnstileSiteKey }: SubmitFormProps) {
         {/* Honeypot: invisible to people, tempting to bots. */}
         <div aria-hidden="true" className="absolute top-0 -left-[9999px] h-0 w-0 overflow-hidden">
           <label>
-            Website
-            <input name="website" tabIndex={-1} autoComplete="off" />
+            Leave blank
+            <input name={HONEYPOT_FIELD} tabIndex={-1} autoComplete="off" />
           </label>
         </div>
 

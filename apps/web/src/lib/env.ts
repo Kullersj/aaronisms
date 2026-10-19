@@ -27,6 +27,9 @@ const publicEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
 });
 
+/** Cloudflare's documented Turnstile test keys (1x = always pass, 2x = always fail, 3x = challenge). */
+const TURNSTILE_TEST_KEY = /^[123]x0{4}/;
+
 const serverEnvSchema = z
   .object({
     NEXT_PUBLIC_SUPABASE_URL: z.url(),
@@ -42,10 +45,31 @@ const serverEnvSchema = z
     RESEND_API_KEY: z.string().min(1).optional(),
     /** Local Mailpit by default; set it to point `smtp` at another server. */
     EMAIL_SMTP_URL: z.string().min(1).default('smtp://127.0.0.1:54325'),
+    /** Set by Vercel; `production` only on the live deployment. */
+    VERCEL_ENV: z.string().optional(),
   })
   .superRefine((env, ctx) => {
     if (env.EMAIL_TRANSPORT === 'resend' && !env.RESEND_API_KEY) {
       ctx.addIssue({ code: 'custom', path: ['RESEND_API_KEY'], message: 'Required for resend' });
+    }
+    if (env.VERCEL_ENV === 'production') {
+      const forbidden = (path: string, message: string) =>
+        ctx.addIssue({ code: 'custom', path: [path], message });
+      if (TURNSTILE_TEST_KEY.test(env.TURNSTILE_SECRET_KEY)) {
+        forbidden(
+          'TURNSTILE_SECRET_KEY',
+          'A Turnstile test secret skips verification in production',
+        );
+      }
+      if (TURNSTILE_TEST_KEY.test(env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)) {
+        forbidden(
+          'NEXT_PUBLIC_TURNSTILE_SITE_KEY',
+          'A Turnstile test key is not allowed in production',
+        );
+      }
+      if (env.EMAIL_TRANSPORT === 'smtp') {
+        forbidden('EMAIL_TRANSPORT', 'smtp is for local testing; use resend in production');
+      }
     }
   });
 
@@ -60,8 +84,12 @@ export function parseServerEnv(source: Record<string, string | undefined>) {
   const result = serverEnvSchema.safeParse(source);
   if (!result.success) {
     const names = [...new Set(result.error.issues.map((issue) => String(issue.path[0])))];
+    const problems = result.error.issues
+      .filter((issue) => issue.code === 'custom')
+      .map((issue) => `${String(issue.path[0])}: ${issue.message}`);
     throw new Error(
       `Missing or invalid environment variables: ${names.join(', ')}. ` +
+        (problems.length ? `${problems.join('; ')}. ` : '') +
         'Copy .env.example to apps/web/.env.local and fill them in.',
     );
   }

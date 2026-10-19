@@ -289,6 +289,10 @@ describe('moderation functions', () => {
     expect(
       (await admin.rpc('merge_speakers', { p_from: speakerId, p_into: speakerId })).error,
     ).not.toBeNull();
+    expect(
+      (await admin.rpc('merge_speakers', { p_from: speakerId, p_into: null as unknown as string }))
+        .error,
+    ).not.toBeNull();
   });
 
   it('does not let anon call any moderation function', async () => {

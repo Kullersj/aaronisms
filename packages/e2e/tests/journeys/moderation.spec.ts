@@ -179,9 +179,10 @@ test.describe('moderation by email link', () => {
     page,
     marker,
     browser,
+    clientIpHeaders,
   }) => {
     const links = await submitAndCollectLinks(page, marker, `Race ${marker}`);
-    const other = await (await browser.newContext()).newPage();
+    const other = await (await browser.newContext({ extraHTTPHeaders: clientIpHeaders })).newPage();
     await Promise.all([page.goto(links.first.approve), other.goto(links.second.reject)]);
     await Promise.all([
       page.getByRole('button', { name: 'Approve' }).click(),

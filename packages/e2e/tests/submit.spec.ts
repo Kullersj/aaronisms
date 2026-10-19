@@ -1,3 +1,4 @@
+import { HONEYPOT_FIELD } from '@aaronisms/db/schemas';
 import { SubmitPage } from '../pages/SubmitPage';
 import { findEntry, tokensFor } from '../fixtures/db';
 import { moderators } from '../fixtures/env';
@@ -129,7 +130,7 @@ test.describe('submit form', () => {
     await submit.chooseSpeaker(1, `${marker} Speaker`, { isNew: true });
     await submit.fillLine(1, 'Bot text');
     await submit.name.fill(marker);
-    await page.locator('input[name="website"]').evaluate((input: HTMLInputElement) => {
+    await page.locator(`input[name="${HONEYPOT_FIELD}"]`).evaluate((input: HTMLInputElement) => {
       input.value = 'https://spam.example';
     });
     await submit.submit.click();

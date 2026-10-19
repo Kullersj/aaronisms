@@ -1,6 +1,7 @@
 import 'server-only';
 
 const VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+const TIMEOUT_MS = 5000;
 
 /**
  * Cloudflare's documented test secret that always passes. Verification is skipped for it, so
@@ -20,7 +21,11 @@ export async function verifyTurnstile(
   const body = new URLSearchParams({ secret, response: token });
   if (ip) body.set('remoteip', ip);
   try {
-    const response = await fetchImpl(VERIFY_URL, { method: 'POST', body });
+    const response = await fetchImpl(VERIFY_URL, {
+      method: 'POST',
+      body,
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
     if (!response.ok) return false;
     const result: { success?: boolean } = await response.json();
     return result.success === true;

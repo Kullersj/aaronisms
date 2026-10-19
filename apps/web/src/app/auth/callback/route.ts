@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { isMagicLinkSession } from '@/lib/auth';
 import { getServerEnv } from '@/lib/env';
 import { createSessionClient } from '@/lib/supabase/session';
 
@@ -16,7 +17,10 @@ export async function GET(request: NextRequest) {
   const { data, error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) return login('link');
 
-  if (data.user.email?.toLowerCase() !== getServerEnv().defaultModerator) {
+  if (
+    data.user.email?.toLowerCase() !== getServerEnv().defaultModerator ||
+    !(await isMagicLinkSession(supabase))
+  ) {
     await supabase.auth.signOut({ scope: 'local' });
     return login('forbidden');
   }
