@@ -1,0 +1,21 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {},
+    "typecheck": {},
+    "test": {},
+    "e2e": {
+      "dependsOn": ["@aaronisms/web#build"],
+      "cache": false,
+      "passThroughEnv": ["BASE_URL", "CI", "PW_CHROMIUM_PATH", "PLAYWRIGHT_BROWSERS_PATH"]
+    }
+  }
+}

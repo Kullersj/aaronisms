@@ -1,0 +1,21 @@
+{
+  "name": "@aaronisms/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./database.types": "./src/database.types.ts",
+    "./schemas": "./src/schemas.ts"
+  },
+  "scripts": {
+    "db:types": "supabase gen types typescript --local > src/database.types.ts",
+    "lint": "eslint .",
+    "typecheck": "tsc"
+  },
+  "devDependencies": {
+    "@aaronisms/config": "workspace:*",
+    "eslint": "catalog:",
+    "supabase": "2.121.0",
+    "typescript": "catalog:"
+  }
+}
