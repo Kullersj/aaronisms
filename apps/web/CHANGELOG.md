@@ -1,5 +1,11 @@
 # @aaronisms/web
 
+## 0.4.1
+
+### Patch Changes
+
+- cd75844: After "Save and approve" in the admin editor, the status select now shows Published, so a later Save no longer takes the entry back to pending.
+
 ## 0.4.0
 
 ### Minor Changes

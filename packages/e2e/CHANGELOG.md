@@ -1,5 +1,11 @@
 # @aaronisms/e2e
 
+## 0.4.2
+
+### Patch Changes
+
+- 2d4620e: Rewrite the end-to-end suite around what visitors, moderators and the admin actually do: navigate by clicking and typing, find elements by their accessible names and labels, assert what is on screen, and read moderation links from the emails. Database access is kept for setup and for effects with no screen. Add navigation, keyboard-only search, dark mode persistence, form validation and emailed-decision checks.
+
 ## 0.4.1
 
 ### Patch Changes
