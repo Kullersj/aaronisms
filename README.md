@@ -84,11 +84,10 @@ cd packages/db
 pnpm exec supabase start            # start the local stack
 pnpm exec supabase db reset         # apply migrations + seed.sql (made-up sample entries)
 pnpm db:types                       # regenerate src/database.types.ts after a schema change
-pnpm test                           # unit tests (no database needed)
-pnpm test:db                        # RLS tests against the local stack (see below)
+pnpm test                           # all tests, including RLS and importer tests on the real database
 ```
 
-`test:db` reads `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`; without them it is skipped. Take the values from `pnpm exec supabase status -o env` (`API_URL`, `ANON_KEY`, `SERVICE_ROLE_KEY`).
+`pnpm test` needs Docker running: the tests use the local Supabase stack (real Postgres), starting it if it is not already up and leaving it running afterwards. Set `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` to point at a different stack instead. `mise run setup` remains the one-time bootstrap.
 
 Security model: anonymous visitors can only read published entries, their lines, speakers and published memes. Everything else (writes, `moderation_tokens`, pending or rejected entries) goes through the service role in server code. The private entry columns (`submitted_by`, `submitter_ip`, `reviewed_by_email`, `decision_note`) are not granted to the API roles at all, so select explicit columns instead of `select *` from the anon client. The bucket is public, so image URLs serve without a `storage.objects` policy; there is deliberately none, so anon cannot list objects.
 

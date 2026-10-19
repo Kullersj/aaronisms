@@ -5,7 +5,6 @@ import type { Database } from '../src/database.types';
 const url = process.env.SUPABASE_URL;
 const anonKey = process.env.SUPABASE_ANON_KEY;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const configured = Boolean(url && anonKey && serviceKey);
 
 const options = { auth: { persistSession: false } };
 const BUCKET = 'aaronism-images';
@@ -19,7 +18,7 @@ const ids = {
   rejected: crypto.randomUUID(),
 };
 
-describe.skipIf(!configured)('row-level security (anon)', () => {
+describe('row-level security (anon)', () => {
   const anon = createClient<Database>(url ?? '', anonKey ?? '', options);
   const admin = createClient<Database>(url ?? '', serviceKey ?? '', options);
   const objectPath = `${PREFIX}/${ids.published}.png`;

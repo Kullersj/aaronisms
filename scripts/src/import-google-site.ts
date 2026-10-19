@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { slugForSpeaker } from '@aaronisms/db/slug';
 import { resolvePagePaths } from './google-sites/files';
@@ -26,25 +27,24 @@ const USAGE = `Usage: tsx src/import-google-site.ts --dir <saved pages> [options
 
 Needs SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY unless --dry-run.`;
 
-const { values } = parseArgs({
-  options: {
-    dir: { type: 'string' },
-    home: { type: 'string' },
-    college: { type: 'string' },
-    memes: { type: 'string' },
-    'images-dir': { type: 'string' },
-    'dry-run': { type: 'boolean', default: false },
-    reset: { type: 'boolean', default: false },
-    help: { type: 'boolean', default: false },
-  },
-});
-
-type Upload = { path: string; image: FoundImage };
+export type Upload = { path: string; image: FoundImage };
 type Imported = { plan: PlannedEntry; page: PageKey };
 
 const log = (message: string) => console.error(message);
 
 async function main() {
+  const { values } = parseArgs({
+    options: {
+      dir: { type: 'string' },
+      home: { type: 'string' },
+      college: { type: 'string' },
+      memes: { type: 'string' },
+      'images-dir': { type: 'string' },
+      'dry-run': { type: 'boolean', default: false },
+      reset: { type: 'boolean', default: false },
+      help: { type: 'boolean', default: false },
+    },
+  });
   if (values.help || (!values.dir && !values.home && !values.college && !values.memes)) {
     console.log(USAGE);
     return;
@@ -131,7 +131,7 @@ async function main() {
   console.log(JSON.stringify({ ...summary, ...result }, null, 2));
 }
 
-async function writeToDatabase(
+export async function writeToDatabase(
   db: Db,
   plans: PlannedEntry[],
   uploads: Map<string, Upload>,
@@ -251,7 +251,9 @@ async function store(db: Db, upload: Upload) {
   if (error) throw new Error(`Upload ${upload.path}: ${error.message}`);
 }
 
-main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exit(1);
-});
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  });
+}
