@@ -1,5 +1,11 @@
 # @aaronisms/web
 
+## 0.3.0
+
+### Minor Changes
+
+- 79ca173: Add full-text search with speaker filters and a header search box, speaker pages and index, a random-entry redirect, a pinned year jump on phones, and `next/og` share images for entries and the site.
+
 ## 0.2.0
 
 ### Minor Changes
