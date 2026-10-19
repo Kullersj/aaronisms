@@ -15,10 +15,10 @@ const DOT_PNG = Buffer.from(
 );
 
 test.describe('submit form', () => {
-  test('is reached from the header button', async ({ page }) => {
+  test('is reached from the header button, over the page the visitor is on', async ({ page }) => {
     await new FeedPage(page).goto();
     await new SiteHeader(page).submitLink.click();
-    await expect(new SubmitPage(page).heading).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Submit an Aaronism' })).toBeVisible();
   });
 
   test('tells the visitor what is missing before sending', async ({ page }) => {
