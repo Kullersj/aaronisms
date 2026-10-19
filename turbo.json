@@ -3,6 +3,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
+      "env": ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
       "outputs": [".next/**", "!.next/cache/**"]
     },
     "dev": {
@@ -11,11 +12,20 @@
     },
     "lint": {},
     "typecheck": {},
-    "test": {},
+    "test": {
+      "cache": false
+    },
     "e2e": {
       "dependsOn": ["@aaronisms/web#build"],
       "cache": false,
-      "passThroughEnv": ["BASE_URL", "CI", "PW_CHROMIUM_PATH", "PLAYWRIGHT_BROWSERS_PATH"]
+      "passThroughEnv": [
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+        "BASE_URL",
+        "CI",
+        "PW_CHROMIUM_PATH",
+        "PLAYWRIGHT_BROWSERS_PATH"
+      ]
     }
   }
 }

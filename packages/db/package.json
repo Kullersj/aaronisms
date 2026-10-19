@@ -5,17 +5,26 @@
   "type": "module",
   "exports": {
     "./database.types": "./src/database.types.ts",
-    "./schemas": "./src/schemas.ts"
+    "./schemas": "./src/schemas.ts",
+    "./slug": "./src/slug.ts",
+    "./testing/global-setup": "./testing/global-setup.ts"
   },
   "scripts": {
     "db:types": "supabase gen types typescript --local > src/database.types.ts",
     "lint": "eslint .",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@aaronisms/config": "workspace:*",
+    "@supabase/supabase-js": "^2.118.0",
+    "@types/node": "catalog:",
     "eslint": "catalog:",
     "supabase": "2.121.0",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

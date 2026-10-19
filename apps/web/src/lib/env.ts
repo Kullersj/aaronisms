@@ -21,6 +21,11 @@ export const moderatorEmailsSchema = emailList.pipe(
   z.array(z.string()).min(1, 'At least one moderator email is required'),
 );
 
+const publicEnvSchema = z.object({
+  NEXT_PUBLIC_SUPABASE_URL: z.url(),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
+});
+
 const serverEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
@@ -46,4 +51,24 @@ function parseServerEnv() {
  */
 export function getServerEnv() {
   return (cached ??= parseServerEnv());
+}
+
+let cachedPublic: z.infer<typeof publicEnvSchema> | undefined;
+
+/**
+ * Only the two public Supabase variables the read-only pages need, so the public site
+ * does not require the server-only secrets. Read at request time, never at import time.
+ * Call only from server code.
+ */
+export function getPublicEnv() {
+  if (cachedPublic) return cachedPublic;
+  const result = publicEnvSchema.safeParse(process.env);
+  if (!result.success) {
+    const names = [...new Set(result.error.issues.map((issue) => String(issue.path[0])))];
+    throw new Error(
+      `Missing or invalid environment variables: ${names.join(', ')}. ` +
+        'Copy .env.example to apps/web/.env.local and fill them in.',
+    );
+  }
+  return (cachedPublic = result.data);
 }

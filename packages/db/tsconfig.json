@@ -1,4 +1,5 @@
 {
   "extends": "@aaronisms/config/tsconfig/library.json",
-  "include": ["src"]
+  "compilerOptions": { "types": ["node"] },
+  "include": ["src", "tests", "testing", "*.ts"]
 }

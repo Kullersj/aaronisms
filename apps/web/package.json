@@ -11,10 +11,14 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aaronisms/db": "workspace:*",
     "@aaronisms/ui": "workspace:*",
+    "@supabase/supabase-js": "^2.118.0",
+    "lucide-react": "^1.59.0",
     "next": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "server-only": "^0.0.1",
     "zod": "catalog:"
   },
   "devDependencies": {
