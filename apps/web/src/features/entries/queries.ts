@@ -71,10 +71,34 @@ export async function fetchEntriesByIds(ids: string[]): Promise<Entry[]> {
   return ids.flatMap((id) => byId.get(id) ?? []);
 }
 
-/** The slug of a random published entry, or null when nothing is published. Never cached. */
-export async function fetchRandomEntrySlug(): Promise<string | null> {
-  const { data, error } = await createAnonClient().rpc('random_published_entry_slug');
+/**
+ * The slug of a random published entry other than `exclude`, or null when nothing is published.
+ * Returns `exclude` itself only when it is the sole published entry. Never cached.
+ */
+export async function fetchRandomEntrySlug(exclude?: string): Promise<string | null> {
+  const client = createAnonClient();
+  const { data, error } = await client.rpc('random_published_entry_slug');
   if (error) throw new Error(`Could not pick a random entry: ${error.message}`);
   // The function returns null when nothing is published, which the generated type does not show.
-  return (data as string | null) ?? null;
+  const slug = (data as string | null) ?? null;
+  if (!exclude || slug !== exclude) return slug;
+
+  // Picked the entry the visitor is already on: pick again among the others.
+  const { count, error: countError } = await client
+    .from('entries')
+    .select('slug', { count: 'exact', head: true })
+    .eq('status', 'published')
+    .neq('slug', exclude);
+  if (countError) throw new Error(`Could not pick a random entry: ${countError.message}`);
+  if (!count) return slug;
+  const offset = Math.floor(Math.random() * count);
+  const { data: rows, error: pickError } = await client
+    .from('entries')
+    .select('slug')
+    .eq('status', 'published')
+    .neq('slug', exclude)
+    .order('slug')
+    .range(offset, offset);
+  if (pickError) throw new Error(`Could not pick a random entry: ${pickError.message}`);
+  return rows[0]?.slug ?? slug;
 }
