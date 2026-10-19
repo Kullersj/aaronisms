@@ -24,6 +24,11 @@ jobs:
       - name: Start local Supabase
         working-directory: packages/db
         run: supabase start -x realtime,imgproxy,studio,edge-runtime,logflare,vector,supavisor
+      # The migrations applied to a fresh stack; the committed types must match them.
+      - name: Generated types are up to date
+        run: |
+          pnpm db:types
+          git diff --exit-code packages/db/src/database.types.ts
       - run: pnpm turbo run lint typecheck test build
 
   changeset:
