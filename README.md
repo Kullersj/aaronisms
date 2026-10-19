@@ -142,7 +142,7 @@ pnpm --filter @aaronisms/scripts import:google-site --dir ~/Downloads/aaronisms-
 
 # Optional: a Complete save does not keep the photos. Download them from the live site
 # (needs a machine that can reach it; no install required), then pass the folder.
-node scripts/fetch-google-site-images.mjs ~/Downloads/aaronisms-images
+pnpm --filter @aaronisms/scripts fetch:images ~/Downloads/aaronisms-images
 
 pnpm --filter @aaronisms/scripts import:google-site --dir ~/Downloads/aaronisms-export --images-dir ~/Downloads/aaronisms-images
 ```

@@ -6,6 +6,7 @@
   "scripts": {
     "import:google-site": "tsx src/import-google-site.ts",
     "import:form-responses": "tsx src/import-form-responses.ts",
+    "fetch:images": "node fetch-google-site-images.mjs",
     "lint": "eslint .",
     "typecheck": "tsc",
     "test": "vitest run"
