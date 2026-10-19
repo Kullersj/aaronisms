@@ -1,6 +1,7 @@
 import 'server-only';
 import type { Entry } from '@aaronisms/db/schemas';
 import { toEntry, type EntryRow } from '@/features/entries/mappers';
+import { compareEntries } from '@/features/entries/utils';
 import { getServerEnv } from '@/lib/env';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hashToken, isTokenShaped } from './tokens';
@@ -48,6 +49,13 @@ export async function getPendingEntries(): Promise<ReviewEntry[]> {
     .order('created_at', { ascending: true });
   if (error) throw new Error(`Could not load the queue: ${error.message}`);
   return (data satisfies ReviewRow[]).map(toReviewEntry);
+}
+
+/** Every entry whatever its status, newest first, for the admin. Service role: callers must authorise. */
+export async function getAllEntries(): Promise<ReviewEntry[]> {
+  const { data, error } = await createAdminClient().from('entries').select(REVIEW_COLUMNS);
+  if (error) throw new Error(`Could not load entries: ${error.message}`);
+  return (data satisfies ReviewRow[]).map(toReviewEntry).sort(compareEntries);
 }
 
 /**

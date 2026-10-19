@@ -3,6 +3,7 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidateTag } from 'next/cache';
+import { z } from 'zod';
 import { ENTRIES_TAG } from '@/features/entries/queries';
 import { decideAsAdmin } from '@/features/moderation/decisions';
 import { getEntryForReview } from '@/features/moderation/queries';
@@ -180,4 +181,27 @@ export async function saveEntry(entryId: string, formData: FormData): Promise<Sa
 
   revalidateTag(ENTRIES_TAG, { expire: 0 });
   return { ok: true };
+}
+
+/**
+ * Deletes an entry for good, with its lines and photo, and takes it off the site. There is no
+ * undo; to hide an entry but keep it, set its status to rejected instead.
+ */
+export async function deleteEntry(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const entryId = field(formData, 'entryId');
+  if (!z.uuid().safeParse(entryId).success) redirect('/admin/entries');
+  const client = createAdminClient();
+  const { data: imagePath, error } = await client.rpc('delete_entry', { p_entry_id: entryId });
+  if (error?.code === 'P0002') {
+    redirect(`/admin/entries?message=${encodeURIComponent('That entry was already deleted.')}`);
+  }
+  if (error) throw new Error(`Could not delete the entry: ${error.message}`);
+  if (imagePath) {
+    const removed = await client.storage.from(IMAGE_BUCKET).remove([imagePath]);
+    // The entry is already gone, so a photo left behind is only wasted space; do not fail for it.
+    if (removed.error) console.error("Could not remove the deleted entry's photo", removed.error);
+  }
+  revalidateTag(ENTRIES_TAG, { expire: 0 });
+  redirect(`/admin/entries?message=${encodeURIComponent('Entry deleted.')}`);
 }

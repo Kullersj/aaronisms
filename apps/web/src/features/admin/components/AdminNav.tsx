@@ -8,6 +8,9 @@ export function AdminNav() {
       <Link href="/admin" className="underline-offset-4 hover:underline">
         Queue
       </Link>
+      <Link href="/admin/entries" className="underline-offset-4 hover:underline">
+        Entries
+      </Link>
       <Link href="/admin/speakers" className="underline-offset-4 hover:underline">
         Speakers
       </Link>
