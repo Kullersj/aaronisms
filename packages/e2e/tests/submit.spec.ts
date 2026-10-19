@@ -45,9 +45,11 @@ test.describe('submit form', () => {
       const submit = new SubmitPage(page);
       await submit.goto();
       const before = todayIn(timeZone);
-      const value = await submit.date.inputValue();
-      // Allows for local midnight passing while the page loads.
-      expect([before, todayIn(timeZone)]).toContain(value);
+      // The server renders its own date; the visitor's appears once the form hydrates. Allows for
+      // local midnight passing while the page loads.
+      await expect(async () => {
+        expect([before, todayIn(timeZone)]).toContain(await submit.date.inputValue());
+      }).toPass();
     });
   });
 
