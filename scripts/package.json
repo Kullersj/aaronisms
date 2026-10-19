@@ -1,0 +1,29 @@
+{
+  "name": "@aaronisms/scripts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "import:google-site": "tsx src/import-google-site.ts",
+    "import:form-responses": "tsx src/import-form-responses.ts",
+    "lint": "eslint .",
+    "typecheck": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aaronisms/db": "workspace:*",
+    "@supabase/supabase-js": "^2.118.0",
+    "csv-parse": "^7.0.3",
+    "node-html-parser": "^9.0.5",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@aaronisms/config": "workspace:*",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "globals": "^17.0.0",
+    "tsx": "^4.23.15",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

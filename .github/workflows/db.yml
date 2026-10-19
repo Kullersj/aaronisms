@@ -1,0 +1,37 @@
+name: DB
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: db-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rls:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+      - run: pnpm install --frozen-lockfile
+      - run: supabase start
+        working-directory: packages/db
+      - name: Export local Supabase credentials
+        working-directory: packages/db
+        run: |
+          eval "$(supabase status -o env | grep -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY)=')"
+          {
+            echo "SUPABASE_URL=$API_URL"
+            echo "SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+      - run: pnpm --filter @aaronisms/db test:db
+      - name: Generated types are up to date
+        run: |
+          pnpm db:types
+          git diff --exit-code packages/db/src/database.types.ts
