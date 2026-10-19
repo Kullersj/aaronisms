@@ -1,15 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
-import { expect as baseExpect, type BrowserContext, type Page } from '@playwright/test';
+import type { BrowserContext, Page } from '@playwright/test';
 import type { Database } from '@aaronisms/db/database.types';
-import { findEntry, serviceClient } from '../../fixtures/db';
+import { serviceClient } from '../../fixtures/db';
 import { ADMIN_STATE, moderators, requireEnv } from '../../fixtures/env';
 import { signInAsAdmin } from '../../fixtures/admin';
-import { countSignInEmailsTo } from '../../fixtures/mailpit';
+import { countSignInEmailsTo, moderationLinks, waitForEmail } from '../../fixtures/mailpit';
 import { test, expect } from '../../fixtures/test';
 import { FeedPage } from '../../pages/FeedPage';
+import { AdminPage } from '../../pages/AdminPage';
+import { ModeratePage } from '../../pages/ModeratePage';
 import { SubmitPage } from '../../pages/SubmitPage';
 
-const [, second] = moderators();
+const [first, second] = moderators();
 
 /** Signs in with a password through the API and hands the session to the browser as its cookie. */
 async function addPasswordSession(context: BrowserContext, email: string, password: string) {
@@ -34,107 +36,134 @@ async function submitPending(page: Page, marker: string, text: string) {
   await expect(submit.thanks).toBeVisible();
 }
 
+async function feedShows(page: Page, text: string) {
+  const feed = new FeedPage(page);
+  await feed.goto();
+  await expect(feed.allAaronisms).toBeAttached();
+  return (await page.getByText(text).count()) > 0;
+}
+
 test.describe('admin, signed in as the default moderator', () => {
   test.use({ storageState: ADMIN_STATE });
 
-  const queueItem = (page: Page, marker: string) =>
-    page.getByRole('listitem').filter({ hasText: `Submitted by ${marker}` });
-
-  test('shows the pending queue and approves from it', async ({ page, marker }) => {
+  test('approves a pending submission from the queue', async ({ page, marker }) => {
     const quote = `Queue approve ${marker}`;
     await submitPending(page, marker, quote);
 
-    await page.goto('/admin');
-    const item = queueItem(page, marker);
+    const admin = new AdminPage(page);
+    await admin.goto();
+    const item = admin.queueItem(marker);
     await expect(item.getByText(quote)).toBeVisible();
     await item.getByRole('button', { name: 'Approve' }).click();
-    await expect(queueItem(page, marker)).toHaveCount(0);
+    await expect(admin.queueItem(marker)).toHaveCount(0);
 
-    const entry = await findEntry(marker);
-    expect(entry?.status).toBe('published');
-    expect(entry?.reviewed_by_email).toBe(moderators()[0]);
-    await new FeedPage(page).goto();
-    await expect(page.getByText(quote)).toBeVisible();
+    expect(await feedShows(page, quote)).toBe(true);
+
+    // The other moderator's email link now shows who approved it.
+    const links = moderationLinks(await waitForEmail(second, marker));
+    const moderate = new ModeratePage(page);
+    await moderate.goto(links.approve);
+    await expect(moderate.notice('Already approved')).toBeVisible();
+    await expect(page.getByText(`Approved by ${first}`)).toBeVisible();
   });
 
-  test('rejects from the queue with a reason', async ({ page, marker }) => {
-    await submitPending(page, marker, `Queue reject ${marker}`);
-    await page.goto('/admin');
-    const item = queueItem(page, marker);
+  test('rejects a pending submission from the queue with a reason', async ({ page, marker }) => {
+    const quote = `Queue reject ${marker}`;
+    await submitPending(page, marker, quote);
+    const admin = new AdminPage(page);
+    await admin.goto();
+    const item = admin.queueItem(marker);
     await item.getByText('Reject…').click();
     await item.getByLabel('Reason (optional)').fill('Too inside');
     await item.getByRole('button', { name: 'Reject', exact: true }).click();
-    await expect(queueItem(page, marker)).toHaveCount(0);
-    expect(await findEntry(marker)).toMatchObject({
-      status: 'rejected',
-      decision_note: 'Too inside',
-    });
+    await expect(admin.queueItem(marker)).toHaveCount(0);
+    expect(await feedShows(page, quote)).toBe(false);
+
+    const links = moderationLinks(await waitForEmail(second, marker));
+    const moderate = new ModeratePage(page);
+    await moderate.goto(links.approve);
+    await expect(moderate.notice('Already rejected')).toBeVisible();
+    await expect(page.getByText('Reason: Too inside')).toBeVisible();
   });
 
-  test('edits a pending entry and approves it in one step', async ({ page, marker }) => {
+  test('edits a pending submission and approves it in one step', async ({ page, marker }) => {
     await submitPending(page, marker, `Before ${marker}`);
-    await page.goto('/admin');
-    await queueItem(page, marker).getByRole('link', { name: 'Edit before approving' }).click();
-    await page.getByLabel('What they said, line 1').fill(`After ${marker}`);
-    await page.getByLabel('Photo description (alt text)').fill('A description');
-    await page.getByRole('button', { name: 'Save and approve' }).click();
+    const admin = new AdminPage(page);
+    await admin.goto();
+    await admin.queueItem(marker).getByRole('link', { name: 'Edit before approving' }).click();
+    await expect(admin.line(1)).toHaveValue(`Before ${marker}`);
+    await admin.fillLine(1, `After ${marker}`);
+    await admin.saveAndApprove.click();
     await expect(page.getByText('Saved and approved.')).toBeVisible();
 
-    const entry = await findEntry(marker);
-    expect(entry?.status).toBe('published');
-    expect(entry?.lines.map((line) => line.text)).toEqual([`After ${marker}`]);
+    expect(await feedShows(page, `After ${marker}`)).toBe(true);
+    expect(await feedShows(page, `Before ${marker}`)).toBe(false);
   });
 
-  test('edits and changes the status of a published entry', async ({ page, marker }) => {
+  test('edits a published entry and takes it down by changing its status', async ({
+    page,
+    context,
+    marker,
+  }) => {
+    // A second tab stands in for a visitor reading the site while the admin works.
+    const visitor = await context.newPage();
     await submitPending(page, marker, `Original ${marker}`);
-    const id = (await findEntry(marker))?.id ?? '';
-    await page.goto('/admin');
-    await queueItem(page, marker).getByRole('button', { name: 'Approve' }).click();
-    await expect(queueItem(page, marker)).toHaveCount(0);
+    const admin = new AdminPage(page);
+    await admin.goto();
+    await admin.queueItem(marker).getByRole('link', { name: 'Edit before approving' }).click();
+    await admin.saveAndApprove.click();
+    await expect(page.getByText('Saved and approved.')).toBeVisible();
+    await expect.poll(() => feedShows(visitor, `Original ${marker}`)).toBe(true);
 
-    await page.goto(`/admin/entries/${id}`);
-    await page.getByLabel('What they said, line 1').fill(`Edited ${marker}`);
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(page.getByText('Saved.')).toBeVisible();
-    await new FeedPage(page).goto();
-    await expect(page.getByText(`Edited ${marker}`)).toBeVisible();
+    // The editor now offers a status to change, showing the one the entry has.
+    await expect(admin.status).toHaveValue('published');
 
-    await page.goto(`/admin/entries/${id}`);
-    await page.getByLabel('Status').selectOption('rejected');
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    // Saving an edit without touching the status keeps the entry published.
+    await admin.fillLine(1, `Edited ${marker}`);
+    await admin.save.click();
     await expect(page.getByText('Saved.')).toBeVisible();
-    await new FeedPage(page).goto();
-    await expect(page.getByText(`Edited ${marker}`)).toHaveCount(0);
-    expect((await findEntry(marker))?.status).toBe('rejected');
+    await expect.poll(() => feedShows(visitor, `Edited ${marker}`)).toBe(true);
+    await expect.poll(() => feedShows(visitor, `Original ${marker}`)).toBe(false);
+
+    await admin.status.selectOption('rejected');
+    await admin.save.click();
+    // The first "Saved." toast may still be showing, so the visitor's feed is the proof here.
+    await expect.poll(() => feedShows(visitor, `Edited ${marker}`)).toBe(false);
   });
 
   test('renames and merges speakers', async ({ page, marker }) => {
     await submitPending(page, marker, `Speaker test ${marker}`);
+    // Setup: a second speaker to merge into, which a visitor could only make with a submission.
     const target = `${marker} Target`;
     await serviceClient()
       .from('speakers')
       .insert({ name: target, slug: `${marker}-target` });
 
-    // Other rows list this name in their merge menus, so find a row by the name it shows.
-    const rowFor = (name: string) =>
-      page.getByRole('listitem').filter({ has: page.locator('strong', { hasText: name }) });
-    await page.goto('/admin/speakers');
-    const row = rowFor(`${marker} Speaker`);
+    const admin = new AdminPage(page);
+    await admin.goto();
+    await admin.openSpeakers();
+    const row = admin.speakerRow(`${marker} Speaker`);
     await row.getByLabel(`New name for ${marker} Speaker`).fill(`${marker} Renamed`);
     await row.getByRole('button', { name: 'Rename' }).click();
     await expect(page.getByText(`Renamed to ${marker} Renamed.`)).toBeVisible();
 
-    const renamed = rowFor(`${marker} Renamed`);
+    const renamed = admin.speakerRow(`${marker} Renamed`);
     await expect(renamed.getByText('1 line')).toBeVisible();
     await renamed.getByLabel(`Merge ${marker} Renamed into`).selectOption({ label: target });
     await renamed.getByRole('button', { name: 'Merge' }).click();
     await expect(page.getByText('Merged.')).toBeVisible();
 
-    await expect(page.getByRole('listitem').filter({ hasText: `${marker} Renamed` })).toHaveCount(
-      0,
-    );
-    await expect(rowFor(target).getByText('1 line')).toBeVisible();
-    expect((await findEntry(marker))?.lines[0]?.speaker?.name).toBe(target);
+    await expect(admin.speakerRow(`${marker} Renamed`)).toHaveCount(0);
+    await expect(admin.speakerRow(target).getByText('1 line')).toBeVisible();
+  });
+
+  test('moves between the queue and speakers from the admin nav', async ({ page }) => {
+    const admin = new AdminPage(page);
+    await admin.goto();
+    await admin.openSpeakers();
+    await expect(page).toHaveURL(/\/admin\/speakers$/);
+    await admin.nav.getByRole('link', { name: 'Queue' }).click();
+    await expect(page).toHaveURL(/\/admin$/);
   });
 });
 
@@ -144,7 +173,7 @@ test.describe('admin, everyone else', () => {
     const context = await browser.newContext({ extraHTTPHeaders: clientIpHeaders });
     const page = await context.newPage();
     await signInAsAdmin(page);
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await new AdminPage(page).signOut.click();
     await expect(page).toHaveURL(/\/admin\/login/);
     await page.goto('/admin');
     await expect(page).toHaveURL(/\/admin\/login/);
@@ -158,16 +187,24 @@ test.describe('admin, everyone else', () => {
     await expect(page).toHaveURL(/\/admin\/login/);
   });
 
-  test('a moderator who is not the default gets no sign-in link', async ({ page }) => {
+  test('a moderator who is not the default gets no sign-in link', async ({
+    page,
+    browser,
+    clientIpHeaders,
+  }) => {
     const before = await countSignInEmailsTo(second);
     await page.goto('/admin/login');
     await page.getByLabel('Email address').fill(second);
     await page.getByRole('button', { name: 'Email me a sign-in link' }).click();
     // The reply is the same as for the real admin, so the form reveals nothing.
     await expect(page.getByText('a link is on its way')).toBeVisible();
-    await baseExpect
-      .poll(async () => countSignInEmailsTo(second), { timeout: 3000, intervals: [1000] })
-      .toBe(before);
+
+    // Mail is sent in the order requested, so once the real admin's link has arrived, a link
+    // for the other moderator would have too.
+    const context = await browser.newContext({ extraHTTPHeaders: clientIpHeaders });
+    await signInAsAdmin(await context.newPage());
+    await context.close();
+    expect(await countSignInEmailsTo(second)).toBe(before);
   });
 
   test('a signed-in non-default moderator is turned away from every admin page', async ({

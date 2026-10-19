@@ -1,16 +1,16 @@
 import type { Locator, Page } from '@playwright/test';
 
 export class FeedPage {
-  readonly heading: Locator;
+  readonly allAaronisms: Locator;
   readonly entries: Locator;
   readonly yearHeadings: Locator;
-  readonly yearNav: Locator;
+  readonly dateHeadings: Locator;
 
   constructor(private readonly page: Page) {
-    this.heading = page.getByRole('link', { name: 'Aaronisms', exact: true });
+    this.allAaronisms = page.getByRole('heading', { level: 1, name: 'All Aaronisms' });
     this.entries = page.getByRole('article');
     this.yearHeadings = page.getByRole('heading', { level: 2 });
-    this.yearNav = page.getByRole('navigation', { name: 'Jump to year' });
+    this.dateHeadings = page.getByRole('heading', { level: 3 });
   }
 
   async goto() {

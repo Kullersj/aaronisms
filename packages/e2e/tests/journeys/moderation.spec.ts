@@ -1,15 +1,16 @@
-import { expect as baseExpect, type Page } from '@playwright/test';
-import { findEntry, serviceClient, tokensFor } from '../../fixtures/db';
+import type { Page } from '@playwright/test';
+import { serviceClient, findEntry } from '../../fixtures/db';
 import { moderators } from '../../fixtures/env';
 import { moderationLinks, waitForEmail } from '../../fixtures/mailpit';
 import { test, expect } from '../../fixtures/test';
 import { FeedPage } from '../../pages/FeedPage';
 import { ModeratePage } from '../../pages/ModeratePage';
+import { SearchPage } from '../../pages/SearchPage';
 import { SubmitPage } from '../../pages/SubmitPage';
 
 const [first, second] = moderators();
 
-/** Submits a quote and returns both moderators' links, read from the emails the site "sent". */
+/** A visitor submits a quote; both moderators' links are read from the emails the site sent. */
 async function submitAndCollectLinks(page: Page, marker: string, text: string) {
   const submit = new SubmitPage(page);
   await submit.submitQuote({ submitter: marker, speaker: `${marker} Speaker`, text });
@@ -26,8 +27,16 @@ async function submitAndCollectLinks(page: Page, marker: string, text: string) {
   };
 }
 
+/** Whether a visitor looking at the feed can see `text`. */
+async function feedShows(page: Page, text: string) {
+  const feed = new FeedPage(page);
+  await feed.goto();
+  await expect(feed.allAaronisms).toBeAttached();
+  return (await page.getByText(text).count()) > 0;
+}
+
 test.describe('moderation by email link', () => {
-  test('emails every moderator, with the first as Reply-To, then approve publishes', async ({
+  test('emails every moderator, then approving from the email publishes the entry', async ({
     page,
     marker,
     request,
@@ -35,39 +44,34 @@ test.describe('moderation by email link', () => {
     const quote = `Approved quote ${marker}`;
     const links = await submitAndCollectLinks(page, marker, quote);
 
-    // The email looks like the site card and names the submitter.
+    // The email names the submitter, quotes the entry and replies to the default moderator.
     expect(links.emailSecond.subject).toBe(`New Aaronism submitted by ${marker}`);
     expect(links.emailSecond.replyTo).toBe(first);
     expect(links.emailSecond.html).toContain(quote);
     expect(links.emailSecond.html).toContain('Edit before approving');
 
-    // Opening a link, even with action=approve, only displays the submission.
-    const pending = await findEntry(marker);
-    for (const action of Object.values(links.second)) {
-      expect((await request.get(action)).status()).toBe(200);
+    // Mail scanners fetch every link in an email. That must only display the submission.
+    for (const link of Object.values(links.second)) {
+      expect((await request.get(link)).status()).toBe(200);
     }
-    expect((await findEntry(marker))?.status).toBe('pending');
 
     const moderate = new ModeratePage(page);
     await moderate.goto(links.second.approve);
     await expect(page.getByText(quote)).toBeVisible();
     await expect(page.getByText(`Submitted by ${marker}`)).toBeVisible();
+    await expect(moderate.hint).toBeVisible();
     await expect(page.locator('meta[name="referrer"]')).toHaveAttribute('content', 'no-referrer');
-    expect((await findEntry(marker))?.status).toBe('pending');
+    // Reloading, which a scanner or an impatient click might do, still changes nothing.
+    await page.reload();
+    await expect(moderate.approve).toBeVisible();
+    expect(await feedShows(page, quote)).toBe(false);
 
+    await moderate.goto(links.second.approve);
     await moderate.approve.click();
     await expect(moderate.notice('Approved')).toBeVisible();
 
-    const approved = await findEntry(marker);
-    expect(approved?.status).toBe('published');
-    expect(approved?.reviewed_by_email).toBe(second);
-    const tokens = await tokensFor(pending?.id ?? '');
-    expect(tokens.every((token) => token.used_at !== null)).toBe(true);
-
     // The entry is on the feed straight away.
-    const feed = new FeedPage(page);
-    await feed.goto();
-    await expect(page.getByText(quote)).toBeVisible();
+    expect(await feedShows(page, quote)).toBe(true);
 
     // The other moderator sees who decided, with nothing left to click.
     await moderate.goto(links.first.approve);
@@ -77,10 +81,9 @@ test.describe('moderation by email link', () => {
     await expect(moderate.reject).toHaveCount(0);
   });
 
-  test('reject records the reason and keeps the entry off the site', async ({
+  test('rejecting with a reason keeps the entry off the site and tells the other moderator', async ({
     page,
     marker,
-    request,
   }) => {
     const quote = `Rejected quote ${marker}`;
     const links = await submitAndCollectLinks(page, marker, quote);
@@ -92,68 +95,70 @@ test.describe('moderation by email link', () => {
     await moderate.reject.click();
     await expect(moderate.notice('Rejected')).toBeVisible();
 
-    const entry = await findEntry(marker);
-    expect(entry).toMatchObject({
-      status: 'rejected',
-      decision_note: 'Not for this site',
-      reviewed_by_email: first,
-    });
-    expect((await request.get(`/a/${entry?.slug}`)).status()).toBe(404);
+    expect(await feedShows(page, quote)).toBe(false);
+    const search = new SearchPage(page);
+    await search.search(quote);
+    await expect(search.noMatches(quote)).toBeVisible();
 
     await moderate.goto(links.second.approve);
     await expect(moderate.notice('Already rejected')).toBeVisible();
-    await expect(page.getByText('Not for this site')).toBeVisible();
-    expect((await findEntry(marker))?.status).toBe('rejected');
+    await expect(page.getByText(`Rejected by ${first}`)).toBeVisible();
+    await expect(page.getByText('Reason: Not for this site')).toBeVisible();
+    await expect(moderate.approve).toHaveCount(0);
   });
 
-  test('edit before approving fixes the text and date, then publishes', async ({
+  test('editing before approving fixes the text and date, then publishes', async ({
     page,
     marker,
   }) => {
     const links = await submitAndCollectLinks(page, marker, `Typo quote ${marker}`);
 
     const moderate = new ModeratePage(page);
-    await moderate.goto(links.first.edit);
-    await expect(page.getByLabel('Setup (optional)')).toBeVisible();
-    await expect(page.getByLabel('What they said, line 1')).toHaveValue(`Typo quote ${marker}`);
-    await page.getByLabel('When was it said?').fill('2026-05-05');
-    await page.getByLabel('Setup (optional)').fill('Fixed setup:');
-    await page.getByLabel('What they said, line 1').fill(`Fixed quote ${marker}`);
-    await page.getByRole('button', { name: 'Add stage direction' }).click();
-    await page.getByLabel('Stage direction 2').fill('Applause.');
-    await page.getByRole('button', { name: 'Save and approve' }).click();
+    await moderate.goto(links.first.approve);
+    await moderate.edit.click();
+    await expect(moderate.context).toBeVisible();
+    await expect(moderate.line(1)).toHaveValue(`Typo quote ${marker}`);
+    await moderate.date.fill('2026-05-05');
+    await moderate.context.fill('Fixed setup:');
+    await moderate.fillLine(1, `Fixed quote ${marker}`);
+    await moderate.addStage.click();
+    await moderate.fillStage(2, 'Applause.');
+    await moderate.saveAndApprove.click();
     await expect(moderate.notice('Approved')).toBeVisible();
 
-    const entry = await findEntry(marker);
-    expect(entry).toMatchObject({
-      status: 'published',
-      reviewed_by_email: first,
-      said_on: '2026-05-05',
-    });
-    expect(entry?.slug).toMatch(/^2026-05-05-\d+$/);
-    expect(entry?.lines.map((line) => line.text)).toEqual([
-      'Fixed setup:',
-      `Fixed quote ${marker}`,
-      'Applause.',
-    ]);
-
-    await new FeedPage(page).goto();
-    await expect(page.getByText(`Fixed quote ${marker}`)).toBeVisible();
+    const feed = new FeedPage(page);
+    await feed.goto();
+    const entry = feed.entryOn('May 5, 2026');
+    await expect(entry.getByText('Fixed setup:')).toBeVisible();
+    await expect(entry.getByText(`Fixed quote ${marker}`)).toBeVisible();
+    await expect(entry.getByText('[Applause.]')).toBeVisible();
     await expect(page.getByText(`Typo quote ${marker}`)).toHaveCount(0);
-    await expect(page.getByText('[Applause.]')).toBeVisible();
+
+    // And it has its own page under the new date.
+    await feed.permalinkFor('May 5, 2026').click();
+    await expect(page).toHaveURL(/\/a\/2026-05-05-\d+$/);
+    await expect(page.getByText(`Fixed quote ${marker}`)).toBeVisible();
   });
 
-  test('edit shows validation errors and publishes nothing', async ({ page, marker }) => {
-    const links = await submitAndCollectLinks(page, marker, `Quote ${marker}`);
-    await page.goto(links.first.edit);
-    await page.getByLabel('What they said, line 1').fill('');
-    await page.getByRole('button', { name: 'Save and approve' }).click();
+  test('editing shows what is wrong and publishes nothing', async ({ page, marker }) => {
+    const quote = `Quote ${marker}`;
+    const links = await submitAndCollectLinks(page, marker, quote);
+    const moderate = new ModeratePage(page);
+    await moderate.goto(links.first.edit);
+    await moderate.fillLine(1, '');
+    await moderate.saveAndApprove.click();
     await expect(page.getByText('Say something')).toBeVisible();
-    expect((await findEntry(marker))?.status).toBe('pending');
+
+    // Still waiting for review: the link still offers the decision, and the feed lacks it.
+    await moderate.goto(links.first.approve);
+    await expect(moderate.approve).toBeVisible();
+    expect(await feedShows(page, quote)).toBe(false);
   });
 
   test('an expired link says so and changes nothing', async ({ page, marker }) => {
-    const links = await submitAndCollectLinks(page, marker, `Expiring ${marker}`);
+    const quote = `Expiring ${marker}`;
+    const links = await submitAndCollectLinks(page, marker, quote);
+    // Setup: a link only expires after two weeks, which a test cannot wait for.
     const entry = await findEntry(marker);
     await serviceClient()
       .from('moderation_tokens')
@@ -164,7 +169,7 @@ test.describe('moderation by email link', () => {
     await moderate.goto(links.first.approve);
     await expect(moderate.notice('This link has expired')).toBeVisible();
     await expect(moderate.approve).toHaveCount(0);
-    expect((await findEntry(marker))?.status).toBe('pending');
+    expect(await feedShows(page, quote)).toBe(false);
   });
 
   test('a made-up link is not valid', async ({ page }) => {
@@ -175,25 +180,34 @@ test.describe('moderation by email link', () => {
     await expect(moderate.notice('This link is not valid')).toBeVisible();
   });
 
-  test('two moderators deciding at once: exactly one decision is recorded', async ({
+  test('two moderators deciding at once end with one decision both of them see', async ({
     page,
     marker,
     browser,
     clientIpHeaders,
   }) => {
-    const links = await submitAndCollectLinks(page, marker, `Race ${marker}`);
-    const other = await (await browser.newContext({ extraHTTPHeaders: clientIpHeaders })).newPage();
-    await Promise.all([page.goto(links.first.approve), other.goto(links.second.reject)]);
-    await Promise.all([
-      page.getByRole('button', { name: 'Approve' }).click(),
-      other.getByRole('button', { name: 'Reject', exact: true }).click(),
-    ]);
-    await baseExpect
-      .poll(async () => (await findEntry(marker))?.status, { timeout: 10_000 })
-      .not.toBe('pending');
-    const decided = await findEntry(marker);
-    const winner = decided?.status === 'published' ? first : second;
-    expect(decided?.reviewed_by_email).toBe(winner);
-    await other.context().close();
+    const quote = `Race ${marker}`;
+    const links = await submitAndCollectLinks(page, marker, quote);
+    const otherContext = await browser.newContext({ extraHTTPHeaders: clientIpHeaders });
+    const otherPage = await otherContext.newPage();
+    const mine = new ModeratePage(page);
+    const theirs = new ModeratePage(otherPage);
+    await Promise.all([mine.goto(links.first.approve), theirs.goto(links.second.reject)]);
+    await Promise.all([mine.approve.click(), theirs.reject.click()]);
+
+    const outcome = /^(Approved|Rejected)$/;
+    const decision = page.getByRole('heading', { level: 2, name: outcome });
+    await expect(decision).toBeVisible();
+    await expect(otherPage.getByRole('heading', { level: 2, name: outcome })).toBeVisible();
+    // Exactly one decision stands, and both moderators are told the same thing.
+    const winner = await decision.textContent();
+    await expect(otherPage.getByRole('heading', { level: 2, name: winner ?? '' })).toBeVisible();
+    // The standing decision carries the name of the moderator who made it.
+    await mine.goto(links.first.approve);
+    await expect(
+      page.getByText(winner === 'Approved' ? `Approved by ${first}` : `Rejected by ${second}`),
+    ).toBeVisible();
+    expect(await feedShows(page, quote)).toBe(winner === 'Approved');
+    await otherContext.close();
   });
 });

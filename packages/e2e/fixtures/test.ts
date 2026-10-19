@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { test as base, type Browser } from '@playwright/test';
 import { deleteTestData, findEntry } from './db';
+import { AdminPage } from '../pages/AdminPage';
 import { ADMIN_STATE } from './env';
 
 type Fixtures = {
@@ -24,8 +25,9 @@ async function unpublish(
   });
   const page = await context.newPage();
   await page.goto(`/admin/entries/${entryId}`);
-  await page.getByLabel('Status').selectOption('rejected');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  const admin = new AdminPage(page);
+  await admin.status.selectOption('rejected');
+  await admin.save.click();
   await page.getByText('Saved.').waitFor();
   // The site's data cache survives a server restart, but tag expiry does not. Re-read the pages
   // now, so what is cached on disk is the clean state rather than the entry that was just removed.
