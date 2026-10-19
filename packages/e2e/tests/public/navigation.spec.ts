@@ -30,6 +30,9 @@ test('a visitor can reach every section from the header and get home again', asy
   await expect(page).toHaveURL(/\/$/);
 
   await header.link('Speakers').click();
+  await expect(new SpeakerPage(page).indexHeading).toBeVisible();
   await header.link('Home').click();
+  await expect(page).toHaveURL(/\/$/);
   await expect(feed.allAaronisms).toBeAttached();
+  await expect(page.getByText('Peruse at risk', { exact: true })).toBeVisible();
 });

@@ -56,6 +56,9 @@ export function AdminEntryForm({
     const result = await saveEntry(entryId, data);
     if (!result.ok) return toast.error(result.message);
     toast.success(intent === 'approve' ? 'Saved and approved.' : 'Saved.');
+    // The refreshed entry is published now; without this the status select would still say
+    // pending, and the next Save would take the entry down again.
+    if (intent === 'approve') setNewStatus('published');
     router.refresh();
   }
 

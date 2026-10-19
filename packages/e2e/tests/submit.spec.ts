@@ -1,5 +1,5 @@
 import { expect, test } from '../fixtures/test';
-import { expectNoHorizontalScroll, localToday } from '../fixtures/browser';
+import { expectNoHorizontalScroll, todayIn } from '../fixtures/browser';
 import { findEntry, tokensFor } from '../fixtures/db';
 import { moderators } from '../fixtures/env';
 import { waitForEmail } from '../fixtures/mailpit';
@@ -35,10 +35,20 @@ test.describe('submit form', () => {
     await expect(page.getByRole('alert').filter({ hasText: 'Say something' })).toHaveCount(0);
   });
 
-  test('defaults the date to today', async ({ page }) => {
-    const submit = new SubmitPage(page);
-    await submit.goto();
-    await expect(submit.date).toHaveValue(localToday());
+  test.describe('in a visitor time zone far from the server', () => {
+    // UTC+14 is a different calendar day from UTC for half of every day, so a date taken from the
+    // server or from UTC fails here.
+    const timeZone = 'Pacific/Kiritimati';
+    test.use({ timezoneId: timeZone });
+
+    test("defaults the date to the visitor's today", async ({ page }) => {
+      const submit = new SubmitPage(page);
+      await submit.goto();
+      const before = todayIn(timeZone);
+      const value = await submit.date.inputValue();
+      // Allows for local midnight passing while the page loads.
+      expect([before, todayIn(timeZone)]).toContain(value);
+    });
   });
 
   test('lets a visitor add lines and stage directions and remove them again', async ({ page }) => {

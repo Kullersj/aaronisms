@@ -46,7 +46,10 @@ export async function waitForMagicLink(to: string, known: Set<string>): Promise<
  * magic-link subject counts, so moderation emails to the same address cannot disturb it.
  */
 export async function countSignInEmailsTo(to: string): Promise<number> {
-  return (await signInEmails(to)).length;
+  const query = encodeURIComponent(`to:${to} subject:"sign-in link"`);
+  const search = await fetch(`${MAILPIT_URL}/api/v1/search?query=${query}`);
+  // The total, not the length of the first page of results, which Mailpit caps.
+  return ((await search.json()) as { messages_count: number }).messages_count;
 }
 
 export type ReceivedEmail = {

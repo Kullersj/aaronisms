@@ -4,6 +4,7 @@ import { SEED } from '../../fixtures/seed';
 import { FeedPage } from '../../pages/FeedPage';
 import { SearchPage } from '../../pages/SearchPage';
 import { SiteHeader } from '../../pages/SiteHeader';
+import { SpeakerPage } from '../../pages/SpeakerPage';
 
 const { published, hidden, speakers } = SEED;
 /** Entries a search for Test Aaron finds: the three they speak in. */
@@ -128,6 +129,7 @@ test.describe('search', () => {
   test('a visitor can search from any section', async ({ page }) => {
     const search = new SearchPage(page);
     await new SiteHeader(page).link('Speakers').click();
+    await expect(new SpeakerPage(page).indexHeading).toBeVisible();
     await search.search('lighthouse');
     await expect(search.results.getByText(published.lighthouse.text)).toBeVisible();
   });

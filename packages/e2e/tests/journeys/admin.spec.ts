@@ -115,12 +115,11 @@ test.describe('admin, signed in as the default moderator', () => {
     await expect(page.getByText('Saved and approved.')).toBeVisible();
     await expect.poll(() => feedShows(visitor, `Original ${marker}`)).toBe(true);
 
-    // The editor offers a status to change.
-    await expect(admin.status).toBeVisible();
+    // The editor now offers a status to change, showing the one the entry has.
+    await expect(admin.status).toHaveValue('published');
 
+    // Saving an edit without touching the status keeps the entry published.
     await admin.fillLine(1, `Edited ${marker}`);
-    // The select still shows its earlier choice, so the admin sets it to what they mean.
-    await admin.status.selectOption('published');
     await admin.save.click();
     await expect(page.getByText('Saved.')).toBeVisible();
     await expect.poll(() => feedShows(visitor, `Edited ${marker}`)).toBe(true);
@@ -128,7 +127,7 @@ test.describe('admin, signed in as the default moderator', () => {
 
     await admin.status.selectOption('rejected');
     await admin.save.click();
-    await expect(page.getByText('Saved.')).toBeVisible();
+    // The first "Saved." toast may still be showing, so the visitor's feed is the proof here.
     await expect.poll(() => feedShows(visitor, `Edited ${marker}`)).toBe(false);
   });
 

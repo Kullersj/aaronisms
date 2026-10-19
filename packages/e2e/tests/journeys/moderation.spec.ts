@@ -202,6 +202,11 @@ test.describe('moderation by email link', () => {
     // Exactly one decision stands, and both moderators are told the same thing.
     const winner = await decision.textContent();
     await expect(otherPage.getByRole('heading', { level: 2, name: winner ?? '' })).toBeVisible();
+    // The standing decision carries the name of the moderator who made it.
+    await mine.goto(links.first.approve);
+    await expect(
+      page.getByText(winner === 'Approved' ? `Approved by ${first}` : `Rejected by ${second}`),
+    ).toBeVisible();
     expect(await feedShows(page, quote)).toBe(winner === 'Approved');
     await otherContext.close();
   });

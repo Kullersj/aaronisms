@@ -17,10 +17,7 @@ export async function tabTo(page: Page, target: Locator, maxPresses = 40) {
   throw new Error(`Tab never reached the target within ${maxPresses} presses`);
 }
 
-/** Today's date as the visitor's browser formats a date input: YYYY-MM-DD, local time. */
-export function localToday(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${now.getFullYear()}-${month}-${day}`;
+/** Today's date in a time zone, as a date input holds it: YYYY-MM-DD. */
+export function todayIn(timeZone: string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
 }
