@@ -20,13 +20,15 @@ Set copies for **Preview** with Cloudflare's test keys (`1x000000000000000000000
 
 ## 4. GitHub secrets
 
-Settings, Secrets and variables, Actions. Both workflows skip with a notice until their secrets exist. See [Keep-alive and backups](../README.md#keep-alive-and-backups).
+Settings, Secrets and variables, Actions. Both workflows skip with a warning until their secrets exist (a manual run fails, so a missing secret is obvious). See [Keep-alive and backups](../README.md#keep-alive-and-backups).
 
-- `SUPABASE_URL` and `SUPABASE_ANON_KEY` (the anon key only) for the keep-alive.
+- `SUPABASE_URL` and `SUPABASE_ANON_KEY` (the publishable key, or the legacy anon key; never a secret or service role key) for the keep-alive.
 - `SUPABASE_DB_URL` for the daily backup (use the Session pooler string, since GitHub runners have no IPv6).
 - `BACKUP_PASSPHRASE`, a long random passphrase that encrypts the backup (the repository is public, so its artifacts are downloadable). Keep a copy outside GitHub, in a password manager: without it the backups cannot be read.
 
 Run each workflow once from the Actions tab (Run workflow) to confirm it is green.
+
+GitHub disables scheduled workflows in a public repository after 60 days without repository activity. Watch for the "scheduled workflow disabled" email and re-enable them from the Actions tab (any push also resets the timer), or the keep-alive and backups stop silently.
 
 ## 5. Import and verify
 
@@ -34,9 +36,16 @@ Seth runs the real import with the service role key; see [Importing the old Goog
 
 ## 6. Check Row Level Security on the hosted project
 
+The pending/rejected checks prove nothing while the project has no private rows, so:
+
+1. Submit a test entry through `/submit` on the hosted site and leave it pending.
+2. Run the check with the publishable key (Project Settings, API Keys; or the legacy anon key):
+
 ```sh
-pnpm check:rls --url https://<project>.supabase.co --anon-key <anon key>
+pnpm check:rls --url https://<project>.supabase.co --anon-key <publishable key>
 ```
+
+3. Reject the test entry from `/admin`.
 
 It must print "All ... checks passed." See [Checking Row Level Security](../README.md#checking-row-level-security).
 

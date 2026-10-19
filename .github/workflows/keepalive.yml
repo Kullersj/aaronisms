@@ -7,6 +7,9 @@ on:
     - cron: '17 6 */3 * *'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   keepalive:
     runs-on: ubuntu-latest
@@ -17,7 +20,9 @@ jobs:
       - name: Query the hosted project
         run: |
           if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
-            echo "::notice::SUPABASE_URL or SUPABASE_ANON_KEY is not set; skipping keep-alive."
+            echo "::warning::SUPABASE_URL or SUPABASE_ANON_KEY is not set; skipping keep-alive."
+            # A manual run fails so a missing secret is obvious; the schedule just warns.
+            if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then exit 1; fi
             exit 0
           fi
           curl --fail-with-body --silent --show-error --retry 3 --retry-delay 10 \

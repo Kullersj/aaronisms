@@ -2,15 +2,16 @@ import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { createClient } from '@supabase/supabase-js';
 
-const USAGE = `Usage: tsx src/check-rls.ts [--url <supabase url>] [--anon-key <anon key>]
+const USAGE = `Usage: tsx src/check-rls.ts [--url <supabase url>] [--anon-key <key>]
 
 Proves, as the anon role, that Row Level Security and grants keep private data private. Safe to run
 against the hosted project: it only reads, and every write it attempts is one the database must
 refuse (an invalid value or a row id that matches nothing), so nothing can be created or changed
-even if a grant were wrong. It refuses to run with a key that is not the anon key.
+even if a grant were wrong. It refuses to run with a key that is not the anon (publishable) key.
 
 Reads SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) and SUPABASE_ANON_KEY (or
-NEXT_PUBLIC_SUPABASE_ANON_KEY) unless given as flags. Exits 1 and lists every failed check.`;
+NEXT_PUBLIC_SUPABASE_ANON_KEY) unless given as flags. The key is the publishable key
+(sb_publishable_...) or the legacy anon JWT. Exits 1 and lists every failed check.`;
 
 const BUCKET = 'aaronism-images';
 const NIL = '00000000-0000-0000-0000-000000000000';
@@ -28,8 +29,14 @@ export type CheckOptions = {
   allowNonAnonKey?: boolean;
 };
 
-/** The `role` claim of a Supabase API key (a JWT), or null if it is not one. */
+/**
+ * The role of a Supabase API key: `anon` for a publishable key (`sb_publishable_...`, not a JWT),
+ * `service_role` for a secret key (`sb_secret_...`), else the `role` claim of a legacy JWT key, or
+ * null if it is none of these.
+ */
 export function keyRole(key: string): string | null {
+  if (key.startsWith('sb_publishable_')) return 'anon';
+  if (key.startsWith('sb_secret_')) return 'service_role';
   try {
     const payload = JSON.parse(Buffer.from(key.split('.')[1] ?? '', 'base64url').toString());
     return typeof payload.role === 'string' ? payload.role : null;
@@ -42,7 +49,9 @@ export async function checkRls({ url, anonKey, allowNonAnonKey }: CheckOptions) 
   const role = keyRole(anonKey);
   if (role !== 'anon' && !allowNonAnonKey) {
     throw new Error(
-      `The key is not an anon key (its role is ${role ?? 'unreadable'}). Never pass a service role key here.`,
+      role === 'service_role'
+        ? 'That is a secret / service role key. Never pass it here: use the publishable key (or the legacy anon key).'
+        : `The key is not an anon key (its role is ${role ?? 'unreadable'}). Use the publishable key (or the legacy anon key).`,
     );
   }
 
@@ -64,11 +73,15 @@ export async function checkRls({ url, anonKey, allowNonAnonKey }: CheckOptions) 
           ? `expected permission denied, got ${error.code ?? 'error'}: ${error.message}`
           : 'the request was allowed',
     );
-  /** Pass when the request returned an error or no rows (RLS filters rather than refuses). */
+  /** Pass when the request succeeded with no rows (RLS filters rather than refuses). */
   const expectEmpty = (name: string, result: { data: unknown[] | null; error: ApiError }) =>
     record(
       name,
-      result.error || !result.data?.length ? null : `returned ${result.data.length} row(s)`,
+      result.error
+        ? `the request failed: ${result.error.message}`
+        : result.data?.length
+          ? `returned ${result.data.length} row(s)`
+          : null,
     );
 
   async function readAll(table: string, columns: string) {
@@ -86,8 +99,12 @@ export async function checkRls({ url, anonKey, allowNonAnonKey }: CheckOptions) 
     }
   }
 
-  // Reads that must work, and must show nothing unpublished.
-  const entries = await readAll('entries', 'id, status');
+  // Reads that must work, and must show nothing unpublished. Lines and speakers are read before
+  // entries: an entry published in between is then already visible when entries are read, so a
+  // line seen here is never reported as belonging to an unpublished entry by mistake.
+  const lines = await readAll('entry_lines', 'id, entry_id, speaker_id');
+  const speakers = await readAll('speakers', 'id');
+  const entries = await readAll('entries', 'id, slug, status');
   record(
     'entries: only published rows are readable',
     entries.every((e) => e.status === 'published')
@@ -101,15 +118,14 @@ export async function checkRls({ url, anonKey, allowNonAnonKey }: CheckOptions) 
     );
   }
 
-  const publishedIds = new Set(entries.filter((e) => e.status === 'published').map((e) => e.id));
-  const lines = await readAll('entry_lines', 'id, entry_id, speaker_id');
+  const published = entries.filter((e) => e.status === 'published');
+  const publishedIds = new Set(published.map((e) => e.id));
   const orphaned = lines.filter((l) => !publishedIds.has(l.entry_id));
   record(
     'entry_lines: only lines of published entries are readable',
     orphaned.length === 0 ? null : `${orphaned.length} line(s) of unpublished entries returned`,
   );
 
-  const speakers = await readAll('speakers', 'id');
   const usedSpeakers = new Set(
     lines.filter((l) => publishedIds.has(l.entry_id)).map((l) => l.speaker_id),
   );
@@ -148,11 +164,16 @@ export async function checkRls({ url, anonKey, allowNonAnonKey }: CheckOptions) 
     (await db.from('rate_limit_hits').select('bucket')).error,
   );
 
-  // Storage: public URLs serve without a policy, and there is none, so listing finds nothing.
+  // Storage: public URLs serve without a policy, and there is none, so listing succeeds with
+  // nothing in it. Any error (network, bad URL) is a failed check, not a pass.
   const listed = await db.storage.from(BUCKET).list('', { limit: 5 });
   record(
     'storage: the bucket cannot be listed',
-    listed.error || !listed.data?.length ? null : `listed ${listed.data.length} object(s)`,
+    listed.error
+      ? `the request failed: ${listed.error.message}`
+      : listed.data.length
+        ? `listed ${listed.data.length} object(s)`
+        : null,
   );
 
   // Writes. Each is doomed even if a grant were wrong: an invalid enum value, a missing required
@@ -222,10 +243,29 @@ export async function checkRls({ url, anonKey, allowNonAnonKey }: CheckOptions) 
   })) {
     expectDenied(`rpc ${name} is not callable`, (await db.rpc(name, args)).error);
   }
-  const search = await db.rpc('search_entries', { q: 'rls-check' });
-  record('rpc search_entries is callable', search.error ? search.error.message : null);
+  // The two public readers work, and return only published rows. Entries may be published while
+  // the check runs, so results are compared with a read taken after the calls.
+  const search = await db.rpc('search_entries', { q: 'the' });
   const random = await db.rpc('random_published_entry_slug');
-  record('rpc random_published_entry_slug is callable', random.error ? random.error.message : null);
+  const after = await readAll('entries', 'id, slug, status');
+  const nowIds = new Set(after.filter((e) => e.status === 'published').map((e) => e.id));
+  const nowSlugs = new Set(after.filter((e) => e.status === 'published').map((e) => e.slug));
+  record(
+    'rpc search_entries returns only published entries',
+    search.error
+      ? search.error.message
+      : (search.data as { id: string }[]).every((r) => nowIds.has(r.id))
+        ? null
+        : 'a result is not a published entry',
+  );
+  record(
+    'rpc random_published_entry_slug returns a published slug',
+    random.error
+      ? random.error.message
+      : random.data === null || nowSlugs.has(random.data)
+        ? null
+        : 'the slug is not a published entry',
+  );
 
   return { passed, failures };
 }
@@ -262,6 +302,11 @@ async function main() {
     return;
   }
   console.log(`All ${passed} checks passed.`);
+  console.log(
+    '\nNOTE: anon cannot see unpublished rows, so the pending, rejected, orphan-line and hidden-speaker\n' +
+      'checks pass trivially when there is nothing private to hide. They only prove something when the\n' +
+      'project has at least one pending or rejected entry (submit a test entry first).',
+  );
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

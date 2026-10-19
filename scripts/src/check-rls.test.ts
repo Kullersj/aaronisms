@@ -56,18 +56,27 @@ describe('check:rls', () => {
   });
 
   it('leaves the database as it found it', async () => {
-    const before = await admin.from('entries').select('id', { count: 'exact', head: true });
+    // Other test files write entries in parallel, so a total count is not stable; look for the
+    // only rows the script's doomed writes could create.
     await checkRls({ url, anonKey });
-    const after = await admin.from('entries').select('id', { count: 'exact', head: true });
-    expect(after.count).toBe(before.count);
+    expect((await admin.from('entries').select('id').eq('slug', 'rls-check')).data).toEqual([]);
+    expect((await admin.from('speakers').select('id').eq('slug', 'rls-check')).data).toEqual([]);
     expect((await admin.from('rate_limit_hits').select('bucket').eq('bucket', 'x')).data).toEqual(
       [],
     );
   });
 
+  it('accepts publishable keys and refuses secret keys', async () => {
+    expect(keyRole('sb_publishable_abc')).toBe('anon');
+    expect(keyRole('sb_secret_abc')).toBe('service_role');
+    expect(keyRole(anonKey)).toBe('anon');
+    expect(keyRole('not-a-key')).toBeNull();
+    await expect(checkRls({ url, anonKey: 'sb_secret_abc' })).rejects.toThrow(/secret/);
+  });
+
   it('refuses a key that is not the anon key', async () => {
     expect(keyRole(serviceKey)).toBe('service_role');
-    await expect(checkRls({ url, anonKey: serviceKey })).rejects.toThrow(/not an anon key/);
+    await expect(checkRls({ url, anonKey: serviceKey })).rejects.toThrow(/secret \/ service role/);
   });
 
   it('reports every leak when run with a privileged key', async () => {

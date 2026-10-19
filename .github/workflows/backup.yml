@@ -8,18 +8,23 @@ on:
     - cron: '23 5 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   backup:
     runs-on: ubuntu-latest
-    env:
-      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
     steps:
       - name: Check for the database URL and passphrase
         id: config
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
         run: |
           if [ -z "$SUPABASE_DB_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
-            echo "::notice::SUPABASE_DB_URL or BACKUP_PASSPHRASE is not set; skipping backup."
+            echo "::warning::SUPABASE_DB_URL or BACKUP_PASSPHRASE is not set; skipping backup."
+            # A manual run fails so a missing secret is obvious; the schedule just warns.
+            if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then exit 1; fi
           else
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           fi
@@ -39,6 +44,9 @@ jobs:
       # passphrase from the environment, never on the command line) in one pipe.
       - name: Dump and encrypt
         if: steps.config.outputs.enabled
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
         run: |
           set -o pipefail
           day="$(date -u +%Y-%m-%d)"
