@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, type BaseSyntheticEvent } from 'react';
-import { useRouter } from 'next/navigation';
-import { FormProvider, useForm } from 'react-hook-form';
+import { useEffect, useRef, useState, type BaseSyntheticEvent } from 'react';
+import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Turnstile } from '@marsidev/react-turnstile';
 import { toast } from 'sonner';
@@ -16,6 +15,7 @@ import {
 import { Button } from '@aaronisms/ui/button';
 import { Input } from '@aaronisms/ui/input';
 import { Label } from '@aaronisms/ui/label';
+import { useSubmitDialog } from '@/components/layout/SubmitDialog';
 import { submitEntry } from '../actions';
 import { EntryFields } from './EntryFields';
 import { FieldError } from './FieldError';
@@ -23,8 +23,6 @@ import { FieldError } from './FieldError';
 export type SubmitFormProps = {
   speakers: string[];
   turnstileSiteKey: string;
-  /** Shown in a dialog: confirm in place of the form once sent, rather than with a toast. */
-  inDialog?: boolean;
 };
 
 const THANKS = "Thanks, it's been sent for review.";
@@ -44,8 +42,9 @@ const emptyForm = (): NewSubmissionInput => ({
   submittedBy: '',
 });
 
-export function SubmitForm({ speakers, turnstileSiteKey, inDialog = false }: SubmitFormProps) {
-  const router = useRouter();
+export function SubmitForm({ speakers, turnstileSiteKey }: SubmitFormProps) {
+  // In a dialog the confirmation replaces the form, rather than showing as a toast.
+  const dialog = useSubmitDialog();
   const form = useForm<NewSubmissionInput, unknown, NewSubmission>({
     resolver: zodResolver(newSubmissionSchema),
     defaultValues: emptyForm(),
@@ -55,7 +54,8 @@ export function SubmitForm({ speakers, turnstileSiteKey, inDialog = false }: Sub
     handleSubmit,
     reset,
     setValue,
-    formState: { errors, isSubmitting },
+    control,
+    formState: { errors, isSubmitting, isDirty },
   } = form;
   const [captcha, setCaptcha] = useState('');
   const [serverError, setServerError] = useState<string>();
@@ -64,6 +64,16 @@ export function SubmitForm({ speakers, turnstileSiteKey, inDialog = false }: Sub
   const [captchaKey, setCaptchaKey] = useState(0);
   // Likewise for the file input, which has no other way to be emptied.
   const [fileKey, setFileKey] = useState(0);
+  const doneButton = useRef<HTMLButtonElement>(null);
+  const hasPhoto = Boolean(useWatch({ control, name: 'image' }));
+
+  useEffect(() => {
+    dialog?.setDirty(isDirty || hasPhoto);
+  }, [dialog, isDirty, hasPhoto]);
+
+  useEffect(() => {
+    if (sent) doneButton.current?.focus();
+  }, [sent]);
 
   async function onSubmit({ image, ...fields }: NewSubmission, event?: BaseSyntheticEvent) {
     setServerError(undefined);
@@ -76,7 +86,7 @@ export function SubmitForm({ speakers, turnstileSiteKey, inDialog = false }: Sub
     try {
       const result = await submitEntry(data);
       if (result.ok) {
-        if (inDialog) setSent(true);
+        if (dialog) setSent(true);
         else toast.success(THANKS);
         reset(emptyForm());
         setFileKey((key) => key + 1);
@@ -84,7 +94,10 @@ export function SubmitForm({ speakers, turnstileSiteKey, inDialog = false }: Sub
         setServerError(result.message);
       }
     } catch {
-      toast.error('Something went wrong. Please try again.');
+      const message = 'Something went wrong. Please try again.';
+      // The toaster sits outside the dialog, where screen readers cannot reach it.
+      if (dialog) setServerError(message);
+      else toast.error(message);
     } finally {
       // A Turnstile token works once, so get a fresh one whatever happened.
       setCaptcha('');
@@ -96,7 +109,7 @@ export function SubmitForm({ speakers, turnstileSiteKey, inDialog = false }: Sub
     return (
       <div className="flex flex-col items-start gap-4">
         <p role="status">{THANKS}</p>
-        <Button type="button" onClick={() => router.back()}>
+        <Button ref={doneButton} type="button" onClick={dialog?.close}>
           Done
         </Button>
       </div>

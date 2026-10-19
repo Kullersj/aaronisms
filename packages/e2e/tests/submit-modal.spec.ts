@@ -42,10 +42,39 @@ test.describe('submit dialog', () => {
 
   test('browser Back closes it', async ({ page }) => {
     await page.goto('/memes');
+    const heading = page.locator('h1');
+    await expect(heading).toBeVisible();
+    const title = await heading.textContent();
     await SubmitPage.openFromHeader(page);
     await page.goBack();
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(page).toHaveURL(/\/memes$/);
+    await expect(heading).toHaveText(title ?? '');
+  });
+
+  test('a click outside the dialog keeps it and its draft', async ({ page, marker }) => {
+    await page.goto('/');
+    const submit = await SubmitPage.openFromHeader(page);
+    await submit.fillLine(1, `A quote from ${marker}`);
+    await page.mouse.click(5, 5);
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByLabel('What they said, line 1')).toHaveValue(`A quote from ${marker}`);
+  });
+
+  test('Escape on a draft asks first, then returns to the feed with its content', async ({
+    page,
+    marker,
+  }) => {
+    await page.goto('/');
+    const feedEntry = page.locator('article').first();
+    await expect(feedEntry).toBeVisible();
+    const submit = await SubmitPage.openFromHeader(page);
+    await submit.fillLine(1, `A quote from ${marker}`);
+    page.once('dialog', (confirm) => confirm.accept());
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/$/);
+    await expect(feedEntry).toBeVisible();
   });
 
   test('scrolls on a phone when the form is taller than the screen', async ({ page }) => {
@@ -61,5 +90,16 @@ test.describe('submit dialog', () => {
     await submit.goto();
     await expect(submit.heading).toBeVisible();
     await expect(page.getByRole('dialog')).toHaveCount(0);
+  });
+
+  test('the header button on /submit focuses the form instead of opening a dialog', async ({
+    page,
+  }) => {
+    const submit = new SubmitPage(page);
+    await submit.goto();
+    await page.getByRole('link', { name: 'Submit an Aaronism' }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(submit.date).toBeFocused();
+    await expect(page).toHaveURL(/\/submit$/);
   });
 });

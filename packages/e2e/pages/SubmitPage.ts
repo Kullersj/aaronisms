@@ -64,7 +64,8 @@ export class SubmitPage {
     speaker: string;
     text: string;
   }) {
-    await this.goto();
+    // Scoped to a dialog, the form is already open.
+    if (this.root === this.page) await this.goto();
     await this.chooseSpeaker(1, speaker, { isNew: true });
     await this.fillLine(1, text);
     await this.name.fill(submitter);

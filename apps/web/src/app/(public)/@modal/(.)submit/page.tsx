@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export default function SubmitModal() {
   return (
     <SubmitDialog>
-      <SubmitFormLoader inDialog />
+      <SubmitFormLoader />
     </SubmitDialog>
   );
 }

@@ -5,6 +5,7 @@ import { cn } from '@aaronisms/ui/lib/utils';
 import { SearchBox } from '@/features/search/components/SearchBox';
 import { Container } from './Container';
 import { SiteNav, type NavItem } from './SiteNav';
+import { SubmitLink } from './SubmitLink';
 import { ThemeToggle } from './ThemeToggle';
 
 const NAV_ITEMS: NavItem[] = [
@@ -41,15 +42,7 @@ export function SiteHeader() {
               Random
             </Link>
             <ThemeToggle />
-            <Link
-              href="/submit"
-              className={cn(
-                buttonVariants({ size: 'sm' }),
-                'bg-white text-neutral-900 hover:bg-white/90',
-              )}
-            >
-              Submit an Aaronism
-            </Link>
+            <SubmitLink />
           </div>
         </div>
         <div className="py-10 text-center sm:py-14">
