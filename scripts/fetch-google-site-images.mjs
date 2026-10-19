@@ -9,6 +9,7 @@
 // No dependencies: needs Node 18+ for the global fetch.
 
 import { mkdir, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const SITE = 'https://www.aaronisms.net';
@@ -18,7 +19,8 @@ const DATE =
 const IMG = /<img\b[^>]*\bsrc="(https:\/\/lh\d*(?:-\w+)?\.googleusercontent\.com\/[^"]+)"/g;
 const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp' };
 
-const outDir = resolve(process.argv[2] ?? 'aaronisms-images');
+// Windows shells do not expand a leading ~, so do it here.
+const outDir = resolve((process.argv[2] ?? 'aaronisms-images').replace(/^~(?=$|[\\/])/, homedir()));
 const decode = (s) => s.replaceAll('&amp;', '&');
 // Google Sites splits text across adjacent spans ("October 6" + ", 202" + "5"), so join without spaces.
 const text = (html) => html.replace(/<[^>]+>/g, '').replace(/&nbsp;|\s+/g, ' ');

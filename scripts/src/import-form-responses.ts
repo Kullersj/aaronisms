@@ -11,6 +11,7 @@ import {
   type PendingSubmission,
 } from './form-responses';
 import { createSpeakerRegistry } from './google-sites/plan';
+import { resolveUserPath } from './paths';
 import { check, createServiceClient, type Db } from './supabase';
 
 const USAGE = `Usage: tsx src/import-form-responses.ts --csv <responses.csv> [options]
@@ -49,12 +50,15 @@ async function main() {
     what: values['what-col'],
     name: values['name-col'],
   };
-  const rows: Record<string, string>[] = parse(await readFile(values.csv, 'utf8'), {
-    columns: true,
-    bom: true,
-    skip_empty_lines: true,
-    relax_column_count: true,
-  });
+  const rows: Record<string, string>[] = parse(
+    await readFile(resolveUserPath(values.csv), 'utf8'),
+    {
+      columns: true,
+      bom: true,
+      skip_empty_lines: true,
+      relax_column_count: true,
+    },
+  );
   const submissions = rows.flatMap((row) => rowToSubmission(row, columns) ?? []);
   const unusable = rows.length - submissions.length;
 

@@ -136,14 +136,15 @@ Security model: anonymous visitors can only read published entries, their lines,
 The importer lives in `scripts/` and needs `SUPABASE_URL` (or `NEXT_PUBLIC_SUPABASE_URL`) and `SUPABASE_SERVICE_ROLE_KEY`. Always start with a dry run, which parses everything and prints counts, speakers, a few sample entries and any images it cannot find, without touching the database:
 
 ```sh
-# Save each page from Chrome with "Webpage, Complete", into one folder.
-pnpm --filter @aaronisms/scripts import:google-site --dir ~/aaronisms-export --dry-run
+# Save each page from Chrome with "Webpage, Complete", into one folder (here Downloads/aaronisms-export).
+# Paths may start with ~ (also on Windows) and relative paths are relative to where you run the command.
+pnpm --filter @aaronisms/scripts import:google-site --dir ~/Downloads/aaronisms-export --dry-run
 
 # Optional: a Complete save does not keep the photos. Download them from the live site
 # (needs a machine that can reach it; no install required), then pass the folder.
-node scripts/fetch-google-site-images.mjs ~/aaronisms-images
+node scripts/fetch-google-site-images.mjs ~/Downloads/aaronisms-images
 
-pnpm --filter @aaronisms/scripts import:google-site --dir ~/aaronisms-export --images-dir ~/aaronisms-images
+pnpm --filter @aaronisms/scripts import:google-site --dir ~/Downloads/aaronisms-export --images-dir ~/Downloads/aaronisms-images
 ```
 
 Expect about 200 dated entries, about 15 to 16 College Years entries and 1 meme. Re-running skips entries whose slug already exists; add `--reset` to delete the imported entries and memes first and import again. Missing images are logged and do not stop the import. Explicit `--home`, `--college` and `--memes` file paths override `--dir`. Speaker spelling variants are merged by the alias map in `scripts/src/google-sites/plan.ts`.
