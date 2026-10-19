@@ -53,6 +53,10 @@ export async function requestMagicLink(
       email,
       options: { emailRedirectTo: `${env.siteUrl}/auth/callback`, shouldCreateUser: false },
     });
+    // Supabase limits how often it sends auth email; say so rather than suggest an instant retry.
+    if (error?.code === 'over_email_send_rate_limit') {
+      return { message: 'Too many sign-in emails were sent recently. Please try again later.' };
+    }
     if (error) return { message: 'We could not send the link. Please try again.' };
   }
   return { message: 'If that address can sign in, a link is on its way. Check your email.' };
