@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, type BaseSyntheticEvent } from 'react';
-import { FormProvider, useForm } from 'react-hook-form';
+import { useEffect, useRef, useState, type BaseSyntheticEvent } from 'react';
+import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Turnstile } from '@marsidev/react-turnstile';
 import { toast } from 'sonner';
@@ -15,6 +15,7 @@ import {
 import { Button } from '@aaronisms/ui/button';
 import { Input } from '@aaronisms/ui/input';
 import { Label } from '@aaronisms/ui/label';
+import { useSubmitDialog } from '@/components/layout/SubmitDialog';
 import { submitEntry } from '../actions';
 import { EntryFields } from './EntryFields';
 import { FieldError } from './FieldError';
@@ -23,6 +24,8 @@ export type SubmitFormProps = {
   speakers: string[];
   turnstileSiteKey: string;
 };
+
+const THANKS = "Thanks, it's been sent for review.";
 
 /** Today's date in the visitor's own time zone, as YYYY-MM-DD. */
 function localToday(): string {
@@ -40,6 +43,8 @@ const emptyForm = (): NewSubmissionInput => ({
 });
 
 export function SubmitForm({ speakers, turnstileSiteKey }: SubmitFormProps) {
+  // In a dialog the confirmation replaces the form, rather than showing as a toast.
+  const dialog = useSubmitDialog();
   const form = useForm<NewSubmissionInput, unknown, NewSubmission>({
     resolver: zodResolver(newSubmissionSchema),
     defaultValues: emptyForm(),
@@ -49,14 +54,26 @@ export function SubmitForm({ speakers, turnstileSiteKey }: SubmitFormProps) {
     handleSubmit,
     reset,
     setValue,
-    formState: { errors, isSubmitting },
+    control,
+    formState: { errors, isSubmitting, isDirty },
   } = form;
   const [captcha, setCaptcha] = useState('');
   const [serverError, setServerError] = useState<string>();
+  const [sent, setSent] = useState(false);
   // Bumping the key remounts the widget, which fetches a fresh single-use token.
   const [captchaKey, setCaptchaKey] = useState(0);
   // Likewise for the file input, which has no other way to be emptied.
   const [fileKey, setFileKey] = useState(0);
+  const doneButton = useRef<HTMLButtonElement>(null);
+  const hasPhoto = Boolean(useWatch({ control, name: 'image' }));
+
+  useEffect(() => {
+    dialog?.setDirty(isDirty || hasPhoto);
+  }, [dialog, isDirty, hasPhoto]);
+
+  useEffect(() => {
+    if (sent) doneButton.current?.focus();
+  }, [sent]);
 
   async function onSubmit({ image, ...fields }: NewSubmission, event?: BaseSyntheticEvent) {
     setServerError(undefined);
@@ -69,19 +86,34 @@ export function SubmitForm({ speakers, turnstileSiteKey }: SubmitFormProps) {
     try {
       const result = await submitEntry(data);
       if (result.ok) {
-        toast.success("Thanks, it's been sent for review.");
+        if (dialog) setSent(true);
+        else toast.success(THANKS);
         reset(emptyForm());
         setFileKey((key) => key + 1);
       } else {
         setServerError(result.message);
       }
     } catch {
-      toast.error('Something went wrong. Please try again.');
+      const message = 'Something went wrong. Please try again.';
+      // The toaster sits outside the dialog, where screen readers cannot reach it.
+      if (dialog) setServerError(message);
+      else toast.error(message);
     } finally {
       // A Turnstile token works once, so get a fresh one whatever happened.
       setCaptcha('');
       setCaptchaKey((key) => key + 1);
     }
+  }
+
+  if (sent) {
+    return (
+      <div className="flex flex-col items-start gap-4">
+        <p role="status">{THANKS}</p>
+        <Button ref={doneButton} type="button" onClick={dialog?.close}>
+          Done
+        </Button>
+      </div>
+    );
   }
 
   return (

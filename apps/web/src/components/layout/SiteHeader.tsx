@@ -5,6 +5,7 @@ import { cn } from '@aaronisms/ui/lib/utils';
 import { SearchBox } from '@/features/search/components/SearchBox';
 import { Container } from './Container';
 import { SiteNav, type NavItem } from './SiteNav';
+import { SubmitLink } from './SubmitLink';
 import { ThemeToggle } from './ThemeToggle';
 
 const NAV_ITEMS: NavItem[] = [
@@ -30,8 +31,10 @@ export function SiteHeader() {
             <SearchBox className="w-36 sm:w-48" />
             {/*
               A plain anchor, not <Link>: the client router remembers where /random redirected
-              the first time and replays it, so later presses never reach the server.
+              the first time and replays it, so later presses never reach the server. The lint
+              rule mistakes /random for a page because the @modal catch-all matches every path.
             */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
             <a
               href="/random"
               className={cn(
@@ -43,15 +46,7 @@ export function SiteHeader() {
               Random
             </a>
             <ThemeToggle />
-            <Link
-              href="/submit"
-              className={cn(
-                buttonVariants({ size: 'sm' }),
-                'bg-white text-neutral-900 hover:bg-white/90',
-              )}
-            >
-              Submit an Aaronism
-            </Link>
+            <SubmitLink />
           </div>
         </div>
         <div className="py-10 text-center sm:py-14">
