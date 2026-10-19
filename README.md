@@ -109,12 +109,12 @@ The anon key is under Project Settings, API. Its test (`scripts/src/check-rls.te
 Two scheduled GitHub Actions workflows protect the free-tier hosted project. Each skips with a notice when its secret is missing.
 
 - **`keepalive.yml`** (every 3 days) reads one row from `entries` through the REST API, so the project is never idle long enough to pause. Secrets: `SUPABASE_URL`, `SUPABASE_ANON_KEY` (anon only).
-- **`backup.yml`** (daily) runs `pg_dump` of the `public` schema and uploads `aaronisms-data-<date>.sql.gz` (all rows) and `aaronisms-schema-<date>.sql.gz` (reference copy) as the `database-backup` artifact, kept for 30 days. Secret: `SUPABASE_DB_URL`, the Postgres connection string from Project Settings, Database. Use the Session pooler string: GitHub runners have no IPv6 and the direct host is IPv6 only. Artifacts on a private repository are visible only to people with access to the repository. Images in Storage are not in the dump (the rows keep their paths); the originals are what the importer was given.
+- **`backup.yml`** (daily) runs `pg_dump` of the `public` schema and uploads `aaronisms-data-<date>.sql.gz.gpg` (all rows) and `aaronisms-schema-<date>.sql.gz.gpg` (reference copy) as the `database-backup` artifact, kept for 30 days. Secrets: `SUPABASE_DB_URL`, the Postgres connection string from Project Settings, Database (use the Session pooler string: GitHub runners have no IPv6 and the direct host is IPv6 only), and `BACKUP_PASSPHRASE`, a long random passphrase kept somewhere other than GitHub. This repository is public and anyone signed in to GitHub can download its artifacts, so the dumps are encrypted with that passphrase, and the job skips without it. Images in Storage are not in the dump (the rows keep their paths); the originals are what the importer was given.
 
 To restore into a new Supabase project (needs `psql` 17), apply the migrations first (`supabase db push` from `packages/db`, or the GitHub integration), then load the data:
 
 ```sh
-gunzip -c aaronisms-data-<date>.sql.gz | psql "$NEW_DB_URL" -v ON_ERROR_STOP=1 --single-transaction
+gpg --decrypt aaronisms-data-<date>.sql.gz.gpg | gunzip | psql "$NEW_DB_URL" -v ON_ERROR_STOP=1 --single-transaction
 ```
 
 ## Changesets

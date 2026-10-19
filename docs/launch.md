@@ -24,6 +24,7 @@ Settings, Secrets and variables, Actions. Both workflows skip with a notice unti
 
 - `SUPABASE_URL` and `SUPABASE_ANON_KEY` (the anon key only) for the keep-alive.
 - `SUPABASE_DB_URL` for the daily backup (use the Session pooler string, since GitHub runners have no IPv6).
+- `BACKUP_PASSPHRASE`, a long random passphrase that encrypts the backup (the repository is public, so its artifacts are downloadable). Keep a copy outside GitHub, in a password manager: without it the backups cannot be read.
 
 Run each workflow once from the Actions tab (Run workflow) to confirm it is green.
 
