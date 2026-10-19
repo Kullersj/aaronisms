@@ -23,8 +23,6 @@ pnpm format         # prettier
 
 For `pnpm e2e` on a fresh machine, install a browser once with `pnpm --filter @aaronisms/e2e exec playwright install chromium`. Set `BASE_URL` to test an already-running deployment, or `PW_CHROMIUM_PATH` to use an existing Chromium binary.
 
-<<<<<<< HEAD
-
 ### Running the site locally
 
 The public pages read published entries from Supabase at request time, so start the local stack first and point the site at it. `pnpm build` itself needs no env vars; the pages simply show an error until the two variables are set.
@@ -42,13 +40,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<ANON_KEY>
 ```
 
 `pnpm e2e` needs the same two variables in the environment, plus the local stack running. Image hosts for `next/image` are derived from `NEXT_PUBLIC_SUPABASE_URL` at build time, so rebuild after changing it. Data is cached under the `entries` and `memes` tags; later phases call `revalidateTag` to refresh it.
-=======
 
 ## Changesets
 
 Every PR includes a changeset describing what changed (CI checks this). Run `pnpm changeset`, pick the packages you touched and the bump type, and commit the generated file in `.changeset/`. When changes land on `main`, the Release workflow opens a "Version packages" PR that bumps versions and writes each package's `CHANGELOG.md`. All packages are private, so nothing is published to npm.
-
-> > > > > > > claude/phase-1-schema-import
 
 ## Packages
 
