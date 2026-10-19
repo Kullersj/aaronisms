@@ -12,6 +12,8 @@ permissions:
 
 jobs:
   version:
+    # The deploy-key push of the version commit triggers this workflow again; skip that run.
+    if: "!startsWith(github.event.head_commit.message, 'chore: version packages')"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,19 +21,26 @@ jobs:
           # The branch tip, not the triggering sha, so a queued run builds on the previous run's version commit.
           ref: main
           ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
+      - name: Look for pending changesets
+        id: pending
+        run: |
+          if ls .changeset/*.md 2>/dev/null | grep -qv '/README\.md$'; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No pending changesets."
+          fi
       - uses: jdx/mise-action@v2
+        if: steps.pending.outputs.found
       - run: pnpm install --frozen-lockfile
+        if: steps.pending.outputs.found
       # Applies pending changesets (bumps versions, writes CHANGELOGs) and commits straight to main.
-      # The deploy-key push re-triggers Release and CI; that Release run finds no changesets and exits.
       - run: pnpm version-packages
+        if: steps.pending.outputs.found
       - name: Commit version bumps
+        if: steps.pending.outputs.found
         env:
           HUSKY: '0'
         run: |
-          if [ -z "$(git status --porcelain)" ]; then
-            echo "No pending changesets."
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A

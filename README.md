@@ -1,6 +1,6 @@
 # Aaronisms
 
-A collection of things said. A Next.js monorepo (pnpm workspaces + Turborepo) backed by Supabase. See the migration plan for the full design; this repo is at Phase 4 (search, speakers, random and share images).
+A collection of things said. A Next.js monorepo (pnpm workspaces + Turborepo) backed by Supabase. See the migration plan for the full design; this repo is at Phase 5 (launch prep). The steps left for launch are in [docs/launch.md](docs/launch.md).
 
 ## Setup
 
@@ -80,6 +80,46 @@ pnpm --filter @aaronisms/email dev     # http://localhost:3001
 - **Share images.** `/a/<slug>/opengraph-image` (via `next/og`) renders the date, speakers and lines, trimmed to about 260 characters and four lines, in the header's dark style; unpublished or unknown entries get a 404. `/opengraph-image` is the default card. Next adds a content hash to these URLs, so read them from the page's `og:image` tag. They still carry the `X-Robots-Tag: noindex` header from `next.config.ts`; `tests/seo.spec.ts` checks it.
 
 The query tests (`apps/web/tests/public-queries.test.ts`) insert their own made-up rows into the real local database and check what the anon role can and cannot see; there are no mocks. The Playwright specs for these routes are in `packages/e2e/tests/public/` (search, speakers, random, og), with page objects in `packages/e2e/pages/`.
+
+## Launch checks, keep-alive and backups
+
+### Checking Row Level Security
+
+`pnpm check:rls` proves as the anon role that the database keeps private data private: pending and rejected entries, their lines and their speakers are not readable; `submitted_by`, `submitter_ip`, `reviewed_by_email` and `decision_note` cannot be selected; the moderation token and rate-limit tables cannot be read; the image bucket cannot be listed; entries, lines and speakers cannot be inserted, updated or deleted; and every write RPC (`create_submission`, `apply_entry_edits`, `merge_speakers`, `decide_entry`, `decide_entry_as_admin`, `moderation_token_state`, `consume_rate_limit`) is refused, while `search_entries` and `random_published_entry_slug` work. It exits 1 and lists each failed check.
+
+It is safe to run against the hosted project before launch: it only reads, every write it tries is one the database must refuse (an invalid value, or the nil UUID, which matches nothing), and it refuses to run with a key whose role is not `anon` (a `sb_secret_...` or service role key is rejected).
+
+Anon cannot see unpublished rows, so the pending, rejected, orphan-line and hidden-speaker checks pass trivially on a project that has none. They only prove something when there is at least one pending or rejected entry, so the script prints a note saying so; see the order of steps in [docs/launch.md](docs/launch.md).
+
+```sh
+pnpm check:rls --url https://<project>.supabase.co --anon-key <publishable key>
+# or: SUPABASE_URL=... SUPABASE_ANON_KEY=... pnpm check:rls
+```
+
+The key is the publishable key (`sb_publishable_...`) under Project Settings, API Keys, or the legacy anon key on the legacy tab. Its test (`scripts/src/check-rls.test.ts`) runs against the local stack as part of `pnpm test`, with pending and rejected rows in place, and also checks that the script fails loudly when given a privileged key.
+
+### Lighthouse
+
+`pnpm lighthouse` (Lighthouse CI, config in `lighthouserc.cjs`) audits `/`, an entry page, `/search?q=`, `/speakers` and `/submit` three times each against the built site (`pnpm build` first, with the local stack running and the env from "Running the site locally"). Performance, accessibility and best practices must each be at least 0.95. SEO is not asserted: the site is deliberately `noindex`. Set `CHROME_PATH` to use an existing Chromium. The `Lighthouse` workflow runs it on every PR.
+
+### Old Google Sites paths
+
+`/home`, `/the-college-years` and `/dont-let-your-memes-be-dreams` (the site's only three pages) redirect permanently (308) in `next.config.ts`; `packages/e2e/tests/public/redirects.spec.ts` checks the status and `Location`.
+
+### Keep-alive and backups
+
+Two scheduled GitHub Actions workflows protect the free-tier hosted project. Each skips with a warning when its secret is missing (a manual run fails instead, so a missing secret is obvious).
+
+GitHub disables scheduled workflows in a public repository after 60 days without repository activity, which would silently stop both. Watch for GitHub's "scheduled workflow disabled" email and re-enable them from the Actions tab; any push also resets the timer.
+
+- **`keepalive.yml`** (every 3 days) reads one row from `entries` through the REST API, so the project is never idle long enough to pause. Secrets: `SUPABASE_URL`, `SUPABASE_ANON_KEY` (the publishable or anon key only).
+- **`backup.yml`** (daily) runs `pg_dump` of the `public` schema and uploads `aaronisms-data-<date>.sql.gz.gpg` (all rows) and `aaronisms-schema-<date>.sql.gz.gpg` (reference copy) as the `database-backup` artifact, kept for 30 days. Secrets: `SUPABASE_DB_URL`, the Postgres connection string from Project Settings, Database (use the Session pooler string: GitHub runners have no IPv6 and the direct host is IPv6 only), and `BACKUP_PASSPHRASE`, a long random passphrase kept somewhere other than GitHub. This repository is public and anyone signed in to GitHub can download its artifacts, so the dumps are encrypted with that passphrase, and the job skips without it. Images in Storage are not in the dump (the rows keep their paths); the originals are what the importer was given.
+
+To restore (needs `psql` 17), the target must be a fresh Supabase project with the migrations applied (`supabase db push` from `packages/db`, or the GitHub integration) and no data: the import must not have been run there, or the load fails on duplicate keys. The search triggers rebuild each entry's search column during the load. Then load the data:
+
+```sh
+gpg --decrypt aaronisms-data-<date>.sql.gz.gpg | gunzip | psql "$NEW_DB_URL" -v ON_ERROR_STOP=1 --single-transaction
+```
 
 ## Changesets
 

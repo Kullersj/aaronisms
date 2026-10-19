@@ -110,3 +110,4 @@ test-results/
 .env*.local
 .vercel
 .auth/
+.lighthouseci

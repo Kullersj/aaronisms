@@ -9,7 +9,8 @@
     "fetch:images": "node fetch-google-site-images.mjs",
     "lint": "eslint .",
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check:rls": "tsx src/check-rls.ts"
   },
   "dependencies": {
     "@aaronisms/db": "workspace:*",
