@@ -17,3 +17,15 @@ jobs:
       - uses: jdx/mise-action@v2
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run lint typecheck test build
+
+  changeset:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: jdx/mise-action@v2
+      - run: pnpm install --frozen-lockfile
+      - name: Every PR carries a changeset
+        run: pnpm changeset status --since=origin/${{ github.base_ref }}
