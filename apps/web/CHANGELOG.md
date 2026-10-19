@@ -1,5 +1,11 @@
 # @aaronisms/web
 
+## 0.4.0
+
+### Minor Changes
+
+- 27f0e57: Submit an Aaronism in a dialog over the current page, keeping /submit as a full page for direct visits.
+
 ## 0.3.3
 
 ### Patch Changes
