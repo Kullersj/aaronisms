@@ -1,5 +1,11 @@
 # @aaronisms/e2e
 
+## 0.4.0
+
+### Minor Changes
+
+- 38a4926: Add launch prep: `pnpm check:rls` (anon-role Row Level Security checks that are safe to run against the hosted project), old-path redirect tests, a Lighthouse CI workflow (95+ for performance, accessibility and best practices), a banana site icon (favicon and Apple touch icon), scheduled Supabase keep-alive and database backup workflows, and a launch checklist.
+
 ## 0.3.0
 
 ### Minor Changes
