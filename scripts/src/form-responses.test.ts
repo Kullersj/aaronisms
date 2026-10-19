@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { dateFromTimestamp, rowToSubmission } from './form-responses';
+import {
+  dateFromTimestamp,
+  lineSignature,
+  nextSlugNumber,
+  rowToSubmission,
+} from './form-responses';
 
 const row = (what: string, extra: Record<string, string> = {}) => ({
   Timestamp: '10/18/2026 14:05:33',
@@ -69,5 +74,32 @@ describe('rowToSubmission', () => {
     );
     expect(result?.saidOn).toBe('2026-01-02');
     expect(result?.lines[0]?.speaker).toBe('Pat');
+  });
+});
+
+describe('lineSignature', () => {
+  it('matches only the same full ordered set of line texts', () => {
+    const ab = [
+      { position: 2, text: 'Second made-up line' },
+      { position: 1, text: 'First made-up line' },
+    ];
+    const inOrder = [
+      { position: 1, text: 'First made-up line' },
+      { position: 2, text: 'Second made-up line' },
+    ];
+    expect(lineSignature(ab)).toBe(lineSignature(inOrder));
+    expect(lineSignature(inOrder.slice(0, 1))).not.toBe(lineSignature(inOrder));
+    expect(
+      lineSignature([...inOrder].reverse().map((l, i) => ({ ...l, position: i + 1 }))),
+    ).not.toBe(lineSignature(inOrder));
+  });
+});
+
+describe('nextSlugNumber', () => {
+  it('is one past the highest numeric suffix, not a count', () => {
+    const slugs = [{ slug: '2026-10-18-1' }, { slug: '2026-10-18-7' }, { slug: '2026-10-18-x' }];
+    expect(nextSlugNumber('2026-10-18', slugs)).toBe(8);
+    expect(nextSlugNumber('2026-10-18', [])).toBe(1);
+    expect(nextSlugNumber('2026-10-18', [{ slug: '2026-10-181-9' }])).toBe(1);
   });
 });

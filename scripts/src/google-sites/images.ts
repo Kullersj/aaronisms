@@ -129,7 +129,13 @@ export async function findImage(ref: ImageRef, ctx: ImageContext): Promise<Found
     const downloaded = await download(src);
     if (downloaded) return downloaded;
   }
-  const decoded = decodeURIComponent(src.split(/[?#]/)[0] ?? src);
+  const rawPath = src.split(/[?#]/)[0] ?? src;
+  let decoded = rawPath;
+  try {
+    decoded = decodeURIComponent(rawPath);
+  } catch {
+    // Malformed escape such as "%E0%A4%A"; use the raw path.
+  }
   const local = path.resolve(ctx.pageDir, decoded);
   if (!remote && existsSync(local)) {
     const found = await readImage(local);

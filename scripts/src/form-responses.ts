@@ -79,3 +79,18 @@ export function rowToSubmission(
 
   return { saidOn, submittedBy, lines: lines.map((line, i) => ({ ...line, position: i + 1 })) };
 }
+
+/** Identifies an entry's content: its lines' texts in position order. */
+export function lineSignature(lines: { position: number; text: string }[]): string {
+  return JSON.stringify([...lines].sort((a, b) => a.position - b.position).map((l) => l.text));
+}
+
+/** Next `YYYY-MM-DD-N` number: one past the highest existing suffix for that date. */
+export function nextSlugNumber(saidOn: string, existing: { slug: string }[]): number {
+  const prefix = `${saidOn}-`;
+  const highest = existing.reduce((max, { slug }) => {
+    const suffix = slug.startsWith(prefix) ? slug.slice(prefix.length) : '';
+    return /^\d+$/.test(suffix) ? Math.max(max, Number(suffix)) : max;
+  }, 0);
+  return highest + 1;
+}
