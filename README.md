@@ -25,7 +25,7 @@ For `pnpm e2e` on a fresh machine, install a browser once with `pnpm --filter @a
 
 ## Changesets
 
-Every PR includes a changeset describing what changed (CI checks this). Run `pnpm changeset`, pick the packages you touched and the bump type, and commit the generated file in `.changeset/`. When changes land on `main`, the Release workflow opens a "Version packages" PR that bumps versions and writes each package's `CHANGELOG.md`. All packages are private, so nothing is published to npm.
+Every PR includes a changeset describing what changed (CI checks this). Run `pnpm changeset`, pick the packages you touched and the bump type, and commit the generated file in `.changeset/`. When changes land on `main`, the Release workflow applies the pending changesets, bumping versions and writing each package's `CHANGELOG.md`, and commits that straight to `main`. All packages are private, so nothing is published to npm.
 
 ## Packages
 
