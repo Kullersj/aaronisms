@@ -17,6 +17,7 @@ export type EntryRow = {
   status: 'pending' | 'published' | 'rejected';
   image_path: string | null;
   image_alt: string | null;
+  no_preview: boolean;
   published_at: string | null;
   created_at: string;
   lines: EntryLineRow[];
@@ -32,6 +33,7 @@ export function toEntry(row: EntryRow): Entry {
     status: row.status,
     imagePath: row.image_path,
     imageAlt: row.image_alt,
+    noPreview: row.no_preview,
     publishedAt: row.published_at,
     createdAt: row.created_at,
     lines: [...row.lines]

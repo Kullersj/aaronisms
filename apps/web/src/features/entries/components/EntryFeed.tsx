@@ -14,7 +14,7 @@ export function EntryFeed({ entries }: EntryFeedProps) {
         <section key={year} aria-labelledby={`year-${year}`} className="flex flex-col gap-4">
           <h2
             id={`year-${year}`}
-            className="bg-muted/90 sticky top-0 z-10 -mx-4 scroll-mt-0 px-4 py-3 text-2xl font-light backdrop-blur"
+            className="bg-muted/90 sticky top-0 z-10 -mx-4 px-4 py-3 text-2xl font-light backdrop-blur max-sm:top-14 max-sm:scroll-mt-14"
           >
             {year}
           </h2>

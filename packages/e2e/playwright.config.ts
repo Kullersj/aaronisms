@@ -7,7 +7,11 @@ const launchOptions = executablePath ? { executablePath } : {};
 
 // The journeys publish entries and sign in as the admin. They run last, so the public specs,
 // which expect exactly the seed data, never see their entries.
-const journeys = /journeys\//;
+const journeys = /journeys\/admin\.spec\.ts/;
+// Runs before the admin journey, never alongside it: each magic-link request replaces the default
+// moderator's one-time token, so sign-ins for that address must not overlap. Not after it either,
+// since the admin journey's password test ends the shared admin session the moderation teardown uses.
+const moderationJourney = /journeys\/moderation\.spec\.ts/;
 const setup = /auth\.setup\.ts/;
 
 export default defineConfig({
@@ -23,12 +27,12 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: [journeys, setup],
+      testIgnore: [journeys, moderationJourney, setup],
       use: { ...devices['Desktop Chrome'], launchOptions },
     },
     {
       name: 'mobile-chrome',
-      testIgnore: [journeys, setup],
+      testIgnore: [journeys, moderationJourney, setup],
       use: { ...devices['Pixel 7'], launchOptions },
     },
     {
@@ -37,9 +41,16 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], launchOptions },
     },
     {
+      name: 'journeys-moderation',
+      testMatch: moderationJourney,
+      dependencies: ['chromium', 'mobile-chrome', 'admin-setup'],
+      fullyParallel: false,
+      use: { ...devices['Desktop Chrome'], launchOptions },
+    },
+    {
       name: 'journeys',
       testMatch: journeys,
-      dependencies: ['chromium', 'mobile-chrome', 'admin-setup'],
+      dependencies: ['journeys-moderation'],
       fullyParallel: false,
       use: { ...devices['Desktop Chrome'], launchOptions },
     },

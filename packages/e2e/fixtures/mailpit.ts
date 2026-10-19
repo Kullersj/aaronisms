@@ -3,17 +3,29 @@ import { MAILPIT_URL } from './env';
 
 type MailpitSummary = { ID: string; Created: string };
 
-/** Waits for a Supabase sign-in email to `to` newer than `since`, and returns its link. */
-export async function waitForMagicLink(to: string, since: Date): Promise<string> {
+/** Newest first. Only the magic-link subject counts, so other mail to the address is never mistaken for it. */
+async function signInEmails(to: string): Promise<MailpitSummary[]> {
+  const query = encodeURIComponent(`to:${to} subject:"sign-in link"`);
+  const search = await fetch(`${MAILPIT_URL}/api/v1/search?query=${query}`);
+  return ((await search.json()) as { messages: MailpitSummary[] }).messages;
+}
+
+/**
+ * The IDs of the sign-in emails already in Mailpit for `to`. Take this right before requesting a
+ * link and pass it to `waitForMagicLink`: message IDs, unlike timestamps, do not depend on the
+ * clocks of the test runner and Mailpit agreeing.
+ */
+export async function knownSignInEmails(to: string): Promise<Set<string>> {
+  return new Set((await signInEmails(to)).map((message) => message.ID));
+}
+
+/** Waits for a Supabase sign-in email to `to` that is not in `known`, and returns its link. */
+export async function waitForMagicLink(to: string, known: Set<string>): Promise<string> {
   let link: string | undefined;
   await expect
     .poll(
       async () => {
-        const search = await fetch(
-          `${MAILPIT_URL}/api/v1/search?query=${encodeURIComponent(`to:${to}`)}`,
-        );
-        const { messages } = (await search.json()) as { messages: MailpitSummary[] };
-        const latest = messages.find((message) => new Date(message.Created) >= since);
+        const latest = (await signInEmails(to)).find((message) => !known.has(message.ID));
         if (!latest) return undefined;
         const message = (await (
           await fetch(`${MAILPIT_URL}/api/v1/message/${latest.ID}`)

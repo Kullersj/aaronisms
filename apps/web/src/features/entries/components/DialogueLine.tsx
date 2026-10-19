@@ -1,19 +1,64 @@
+import Link from 'next/link';
 import type { EntryLine } from '@aaronisms/db/schemas';
+import { highlightSegments } from '@/features/search/utils';
 import { formatStageDirection } from '../utils';
 
-export type DialogueLineProps = { line: EntryLine };
+export type DialogueLineProps = {
+  line: EntryLine;
+  /** Words to mark, for search results. */
+  highlight?: string[];
+};
 
-export function DialogueLine({ line }: DialogueLineProps) {
+function Marked({ text, terms }: { text: string; terms: string[] | undefined }) {
+  if (!terms || terms.length === 0) return text;
+  return highlightSegments(text, terms).map((segment, index) =>
+    segment.match ? (
+      <mark
+        key={index}
+        className="rounded-sm bg-yellow-200 px-0.5 text-inherit dark:bg-yellow-500/40"
+      >
+        {segment.text}
+      </mark>
+    ) : (
+      segment.text
+    ),
+  );
+}
+
+export function DialogueLine({ line, highlight }: DialogueLineProps) {
   if (line.kind === 'stage') {
-    return <p className="text-muted-foreground italic">{formatStageDirection(line.text)}</p>;
+    return (
+      <p className="text-muted-foreground italic">
+        <Marked text={formatStageDirection(line.text)} terms={highlight} />
+      </p>
+    );
   }
   if (line.kind === 'context') {
-    return <p>{line.text}</p>;
+    return (
+      <p>
+        <Marked text={line.text} terms={highlight} />
+      </p>
+    );
   }
-  const speaker = line.speaker?.name ?? line.speakerLabel;
   return (
     <p>
-      {speaker ? <strong className="font-semibold">{speaker}:</strong> : null} <em>{line.text}</em>
+      {line.speaker ? (
+        <strong className="font-semibold">
+          <Link
+            href={`/speakers/${line.speaker.slug}`}
+            className="focus-visible:ring-ring rounded-sm underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+          >
+            <Marked text={line.speaker.name} terms={highlight} />:
+          </Link>
+        </strong>
+      ) : line.speakerLabel ? (
+        <strong className="font-semibold">
+          <Marked text={line.speakerLabel} terms={highlight} />:
+        </strong>
+      ) : null}{' '}
+      <em>
+        <Marked text={line.text} terms={highlight} />
+      </em>
     </p>
   );
 }

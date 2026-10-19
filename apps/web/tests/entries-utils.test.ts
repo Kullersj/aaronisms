@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Entry } from '@aaronisms/db/schemas';
 import {
   compareEntries,
+  entryDescription,
   entrySummary,
   formatEntryDate,
   formatStageDirection,
@@ -17,6 +18,7 @@ function entry(slug: string, saidOn: string | null, text = 'Hello'): Entry {
     status: 'published',
     imagePath: null,
     imageAlt: null,
+    noPreview: false,
     publishedAt: null,
     createdAt: '2026-01-01T00:00:00+00:00',
     lines: [
@@ -91,5 +93,14 @@ describe('entrySummary', () => {
   it('uses the first spoken line with its speaker and truncates', () => {
     expect(entrySummary(entry('a', '2026-01-05', 'Hi'))).toBe('Test Aaron: Hi');
     expect(entrySummary(entry('a', '2026-01-05', 'x'.repeat(300)), 20)).toHaveLength(20);
+  });
+});
+
+describe('entryDescription', () => {
+  it('quotes the entry unless it opted out of previews', () => {
+    expect(entryDescription(entry('a', '2026-01-05', 'Hi'))).toBe('Test Aaron: Hi');
+    const hidden = { ...entry('a', '2026-01-05', 'Secret'), noPreview: true };
+    expect(entryDescription(hidden)).toBe('An Aaronism.');
+    expect(entryDescription(hidden)).not.toContain('Secret');
   });
 });

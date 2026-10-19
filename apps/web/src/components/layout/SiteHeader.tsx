@@ -1,13 +1,15 @@
 import Link from 'next/link';
+import { Shuffle } from 'lucide-react';
 import { buttonVariants } from '@aaronisms/ui/button';
 import { cn } from '@aaronisms/ui/lib/utils';
+import { SearchBox } from '@/features/search/components/SearchBox';
 import { Container } from './Container';
 import { SiteNav, type NavItem } from './SiteNav';
 import { ThemeToggle } from './ThemeToggle';
 
-// Only pages that exist. Add Search, Speakers and so on as their phases ship.
 const NAV_ITEMS: NavItem[] = [
   { href: '/', label: 'Home' },
+  { href: '/speakers', label: 'Speakers' },
   { href: '/college', label: 'College Years' },
   { href: '/memes', label: 'Memes' },
 ];
@@ -24,7 +26,20 @@ export function SiteHeader() {
       <Container className="relative max-w-5xl py-4">
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
           <SiteNav items={NAV_ITEMS} />
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <SearchBox className="w-36 sm:w-48" />
+            {/* A route handler that redirects; never prefetch it, or the link would go stale. */}
+            <Link
+              href="/random"
+              prefetch={false}
+              className={cn(
+                buttonVariants({ variant: 'ghost', size: 'sm' }),
+                'text-white hover:bg-white/10 hover:text-white',
+              )}
+            >
+              <Shuffle className="size-4" aria-hidden="true" />
+              Random
+            </Link>
             <ThemeToggle />
             <Link
               href="/submit"

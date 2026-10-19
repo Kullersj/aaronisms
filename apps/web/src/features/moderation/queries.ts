@@ -26,7 +26,7 @@ export type TokenView =
 
 // Includes `submitted_by`, which is private: read it with the service role only, never publicly.
 const REVIEW_COLUMNS =
-  'id, slug, said_on, era, status, image_path, image_alt, submitted_by, published_at, created_at, lines:entry_lines(id, position, kind, speaker_label, text, speaker:speakers(id, name, slug))';
+  'id, slug, said_on, era, status, image_path, image_alt, no_preview, submitted_by, published_at, created_at, lines:entry_lines(id, position, kind, speaker_label, text, speaker:speakers(id, name, slug))';
 
 /** One entry by id for moderators, whatever its status. Service role: callers must authorise. */
 export async function getEntryForReview(id: string): Promise<ReviewEntry | null> {
