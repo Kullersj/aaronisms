@@ -147,6 +147,8 @@ pnpm --filter @aaronisms/scripts fetch:images ~/Downloads/aaronisms-images
 pnpm --filter @aaronisms/scripts import:google-site --dir ~/Downloads/aaronisms-export --images-dir ~/Downloads/aaronisms-images
 ```
 
+The site caches published entries for up to an hour, and the importer writes straight to the database, so a fresh import can take that long to appear; to show it at once, purge the `entries` tag in Vercel (Project, Settings, Caches) or redeploy. Approvals and admin edits refresh the cache themselves.
+
 Expect about 200 dated entries, about 15 to 16 College Years entries and 1 meme. Re-running skips entries whose slug already exists; add `--reset` to delete the imported entries and memes first and import again. Missing images are logged and do not stop the import. Explicit `--home`, `--college` and `--memes` file paths override `--dir`. Speaker spelling variants are merged by the alias map in `scripts/src/google-sites/plan.ts`.
 
 Responses from the old Google Form (export the response Sheet as CSV) can be imported as pending entries; ones whose text is already on the site are skipped:
