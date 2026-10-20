@@ -95,19 +95,60 @@ function paragraphLines(p: HTMLElement): Segment[][] {
   return lines;
 }
 
-const clean = (text: string) => text.replace(/[\s\u00a0]+/g, ' ').trim();
+// Zero-width characters (common in Google Sites and Docs text) are removed, not turned into spaces.
+const clean = (text: string) =>
+  text
+    .replace(/[\u200b-\u200d\u2060\ufeff]/g, '')
+    .replace(/[\s\u00a0]+/g, ' ')
+    .trim();
 
-/** True for labels naming several people or a crowd rather than one speaker. */
+/** Splits "Pat (whispering)" into the name and the trailing aside; the aside is null if absent. */
+export function splitAside(label: string): { name: string; aside: string | null } {
+  const match = /^(.*?)\s*\(([^()]*)\)\s*$/.exec(label.trim());
+  if (!match) return { name: label.trim(), aside: null };
+  return { name: match[1]?.trim() ?? '', aside: clean(match[2] ?? '') || null };
+}
+
+/**
+ * True for labels naming several people or a crowd rather than one speaker. A trailing
+ * parenthetical such as "Pat (whispering)" is an aside about one person, not a group.
+ */
 export function isGroupLabel(label: string): boolean {
+  const { name } = splitAside(label);
   return (
-    /[,&()]|\band\b/i.test(label) ||
-    /^(everyone|everybody|all|both|the group|others?)\b/i.test(label.trim())
+    name === '' ||
+    /[,&()]|\band\b/i.test(name) ||
+    /^(everyone|everybody|all|both|the group|others?)\b/i.test(name)
   );
 }
 
 function cleanLabel(label: string): string {
   return clean(label.replace(/[*"“”]/g, ''));
 }
+
+const NAME_PARTICLES = new Set(['de', 'del', 'van', 'von', 'da', 'di', 'la', 'le', 'der', 'bin']);
+/** Words that open narration or an instruction rather than a name: "Later: he left." */
+const NARRATION_WORDS = new Set([
+  'later',
+  'earlier',
+  'meanwhile',
+  'after',
+  'before',
+  'when',
+  'upon',
+  'then',
+  'listen',
+  'note',
+  'context',
+  'setting',
+  'scene',
+  'update',
+  'edit',
+  'ps',
+  'today',
+  'tonight',
+  'yesterday',
+]);
 
 /**
  * Speaker label and remaining text for a line that starts "Name:", or null.
@@ -117,7 +158,9 @@ function cleanLabel(label: string): string {
  * only when the label looks like a name.
  */
 function splitSpeaker(segments: Segment[]): { label: string; rest: string } | null {
-  const chars = segments.flatMap((s) => [...s.text].map((ch) => ({ ch, bold: s.bold })));
+  const chars = segments.flatMap((s) =>
+    [...s.text].map((ch) => ({ ch, bold: s.bold, italic: s.italic })),
+  );
   const colon = chars.findIndex((c) => c.ch === ':');
   const firstReal = chars.find((c) => clean(c.ch) !== '');
   if (colon === -1 || !firstReal) return null;
@@ -140,11 +183,17 @@ function splitSpeaker(segments: Segment[]): { label: string; rest: string } | nu
     return nameOnly && label ? { label, rest } : null;
   }
 
-  // "At 9:11 PM:" and "Leaving the hardware store:" must not count as speakers.
+  // "At 9:11 PM:", "Leaving the hardware store:" and "Later that night:" must not count as
+  // speakers. Italic is how the site marks speech, so an italic "Listen: ..." is a quote, not a
+  // name. The label must be short, with every word capitalised, and not open with a narration word.
+  const words = label.split(' ');
   const looksLikeName =
+    words.length <= 3 &&
+    words.every((word) => /^\p{Lu}/u.test(word) || NAME_PARTICLES.has(word)) &&
     /^\p{Lu}/u.test(label) &&
     !/\d/.test(label) &&
-    label.split(' ').length <= 6 &&
+    !NARRATION_WORDS.has(words[0]?.toLowerCase() ?? '') &&
+    !before.some((c) => c.italic && clean(c.ch) !== '') &&
     /^[\s\u00a0]/.test(rest) &&
     clean(rest) !== '' &&
     !segments.some((s) => s.bold);
@@ -162,7 +211,8 @@ function parseLine(segments: Segment[]): ParsedLine | null {
   }
 
   const text = clean(segments.map((s) => s.text).join(''));
-  if (!text) return null;
+  // A paragraph with no letters or digits (zero-width spaces, stray punctuation) is not a quote.
+  if (!text || !/[\p{L}\p{N}]/u.test(text)) return null;
   if (wrappedInAsterisks(text))
     return { speakerLabel: null, text: stripAsterisks(text), kind: 'stage' };
   if (text.endsWith(':')) return { speakerLabel: null, text, kind: 'context' };
@@ -173,19 +223,28 @@ function parseLine(segments: Segment[]): ParsedLine | null {
   return { speakerLabel: null, text, kind: allItalic ? 'line' : 'context' };
 }
 
+/** Index of a month name, its three-letter abbreviation or "Sept"; -1 if it is none of these. */
+function monthIndex(name: string): number {
+  const lower = name.toLowerCase();
+  return MONTHS.findIndex(
+    (month) =>
+      month === lower || month.slice(0, 3) === lower || (lower === 'sept' && month === 'september'),
+  );
+}
+
 const DATE_TEXT = /([A-Za-z]+)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})/;
 
 /** True when a heading reads like "Month D, YYYY", so other section headings can be skipped. */
 function looksLikeDate(raw: string): boolean {
   const match = DATE_TEXT.exec(clean(raw));
-  return MONTHS.includes((match?.[1] ?? '').toLowerCase());
+  return monthIndex(match?.[1] ?? '') !== -1;
 }
 
-/** Converts "October 6, 2025" (any spacing, optional ordinal) to `2025-10-06`. */
+/** Converts "October 6, 2025" (any spacing, optional ordinal, abbreviated month) to `2025-10-06`. */
 export function parseDateText(raw: string): string {
   const text = clean(raw);
   const match = DATE_TEXT.exec(text);
-  const month = MONTHS.indexOf((match?.[1] ?? '').toLowerCase());
+  const month = monthIndex(match?.[1] ?? '');
   if (!match || month === -1) throw new Error(`Unrecognised date heading: "${text}"`);
   const year = Number(match[3]);
   const day = Number(match[2]);
@@ -219,7 +278,7 @@ function parseEntry(
   const imageUrls = section
     .querySelectorAll(SELECTORS.image)
     .map((img) => img.getAttribute('src'))
-    .filter((src): src is string => Boolean(src));
+    .filter((src): src is string => Boolean(src) && CONTENT_IMAGE.test(src ?? ''));
   return { sectionIndex, saidOn, lines, imageUrls };
 }
 
@@ -240,7 +299,11 @@ export function parseGoogleSitesPage(html: string, era: Era): ParsedEntry[] {
       continue;
     }
     const heading = section.querySelector(SELECTORS.heading);
-    if (!heading) continue;
+    if (!heading) {
+      const lost = parseEntry(section, index, null).lines.length;
+      if (lost > 0) console.warn(`Skipping section ${index}: ${lost} line(s) but no date heading`);
+      continue;
+    }
     const text = headingText(heading);
     if (!looksLikeDate(text)) {
       console.warn(`Skipping section ${index}: heading is not a date: "${clean(text)}"`);

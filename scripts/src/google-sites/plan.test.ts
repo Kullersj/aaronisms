@@ -56,3 +56,38 @@ describe('planEntries', () => {
     expect(planned[0]?.sectionIndex).toBe(8);
   });
 });
+
+describe('speaker identity', () => {
+  it('matches the database slug: accents fold, hyphens and spaces agree, other names stay apart', () => {
+    const speakers = createSpeakerRegistry();
+    expect(speakers.canonicalName('Zoë')).toBe('Zoë');
+    expect(speakers.canonicalName('Zoe')).toBe('Zoë');
+    expect(speakers.canonicalName('Mary Jo')).toBe('Mary Jo');
+    expect(speakers.canonicalName('Mary-Jo')).toBe('Mary Jo');
+    expect(speakers.canonicalName('José')).toBe('José');
+    expect(speakers.canonicalName('Jos')).toBe('Jos');
+    expect(speakers.names).toEqual(['Zoë', 'Mary Jo', 'José', 'Jos']);
+  });
+
+  it('keeps a name with no slug as a plain label, not a speaker', () => {
+    const [planned] = planEntries(
+      [entry('2026-01-01', 1, '李')],
+      'modern',
+      createSpeakerRegistry(),
+    );
+    expect(planned?.lines[0]).toMatchObject({ speakerName: null, speakerLabel: '李' });
+  });
+
+  it('keeps the speaker for "Pat (whispering)" and the aside in the text', () => {
+    const speakers = createSpeakerRegistry();
+    const [planned] = planEntries(
+      [entry('2026-01-01', 1, 'Pat (whispering)', 'Pat')],
+      'modern',
+      speakers,
+    );
+    expect(planned?.lines.map((l) => [l.speakerName, l.speakerLabel, l.text])).toEqual([
+      ['Pat', null, '(whispering) x'],
+      ['Pat', null, 'x'],
+    ]);
+  });
+});

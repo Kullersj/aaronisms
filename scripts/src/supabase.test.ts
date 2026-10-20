@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { projectUrl } from './supabase';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { keyRole, projectUrl, serviceTarget } from './supabase';
 
 describe('projectUrl', () => {
   it('keeps a plain project URL', () => {
@@ -18,5 +18,27 @@ describe('projectUrl', () => {
     expect(() => projectUrl('postgresql://postgres@db.abc.supabase.co:5432/postgres')).toThrow(
       /project URL/,
     );
+  });
+});
+
+describe('serviceTarget', () => {
+  afterEach(() => vi.unstubAllEnvs());
+  const jwt = (role: string) =>
+    `x.${Buffer.from(JSON.stringify({ role })).toString('base64url')}.y`;
+
+  it('returns the host for a service role key', () => {
+    vi.stubEnv('SUPABASE_URL', 'https://abc.supabase.co/rest/v1');
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', jwt('service_role'));
+    expect(serviceTarget()).toMatchObject({
+      url: 'https://abc.supabase.co',
+      host: 'abc.supabase.co',
+    });
+    expect(keyRole('sb_secret_abc')).toBe('service_role');
+  });
+
+  it('refuses an anon key', () => {
+    vi.stubEnv('SUPABASE_URL', 'https://abc.supabase.co');
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', jwt('anon'));
+    expect(() => serviceTarget()).toThrow(/not a service role key/);
   });
 });

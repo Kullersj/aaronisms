@@ -1,6 +1,7 @@
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { createClient } from '@supabase/supabase-js';
+import { keyRole } from './supabase';
 
 const USAGE = `Usage: tsx src/check-rls.ts [--url <supabase url>] [--anon-key <key>]
 
@@ -29,21 +30,7 @@ export type CheckOptions = {
   allowNonAnonKey?: boolean;
 };
 
-/**
- * The role of a Supabase API key: `anon` for a publishable key (`sb_publishable_...`, not a JWT),
- * `service_role` for a secret key (`sb_secret_...`), else the `role` claim of a legacy JWT key, or
- * null if it is none of these.
- */
-export function keyRole(key: string): string | null {
-  if (key.startsWith('sb_publishable_')) return 'anon';
-  if (key.startsWith('sb_secret_')) return 'service_role';
-  try {
-    const payload = JSON.parse(Buffer.from(key.split('.')[1] ?? '', 'base64url').toString());
-    return typeof payload.role === 'string' ? payload.role : null;
-  } catch {
-    return null;
-  }
-}
+export { keyRole };
 
 export async function checkRls({ url, anonKey, allowNonAnonKey }: CheckOptions) {
   const role = keyRole(anonKey);
