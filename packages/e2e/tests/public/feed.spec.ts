@@ -30,6 +30,18 @@ test.describe('feed', () => {
     ]);
   });
 
+  test('shows the newest posts first, including among entries that share a date', async ({
+    page,
+  }) => {
+    const feed = new FeedPage(page);
+    await feed.goto();
+    // The pumpkin entry was added after the sandwich one on the same day, so it comes first.
+    await expect(feed.entries).toHaveCount(3);
+    await expect(feed.entries.nth(0)).toContainText(published.lighthouse.text);
+    await expect(feed.entries.nth(1)).toContainText(published.pumpkin.text);
+    await expect(feed.entries.nth(2)).toContainText(published.sandwich.text);
+  });
+
   test('shows speakers in bold, their words in italics and stage directions in brackets', async ({
     page,
   }) => {
