@@ -1,5 +1,14 @@
 # @aaronisms/db
 
+## 0.4.2
+
+### Patch Changes
+
+- 9e6a000: Admin edits no longer unpublish an entry someone else just decided, keep imported group labels, speakerless lines, setup lines and long text intact, and report errors. Moderators and admins are told when their decision did not apply, and the admin form no longer re-uploads the same photo on every save.
+- fd735d1: Submitted photos now go to a private bucket and are copied to the public one, under a random name, only when an entry is approved. Photos are re-encoded to strip EXIF metadata and capped in size, signed URLs are used in the moderation email and review pages, and removed, replaced or deleted entries no longer leave their photo public.
+- 2041c85: The database tests and the destructive e2e journeys now refuse to run against a non-local Supabase URL unless `ALLOW_REMOTE_SUPABASE_TESTS=1` is set. Turbo's build cache now sees `.env*` files and typecheck/lint depend on their workspace dependencies, web typecheck uses `next typegen`, and the env and share-image docs match the code.
+- 5fb5d63: Dedupe the web form helpers, admin message codes, test helpers and shared dependencies, and remove dead code. The moderator email subject is now neutral (no submitter name), submitter text in it is stripped of control characters, and the rate limiter buckets IPv6 addresses by /64.
+
 ## 0.4.1
 
 ### Patch Changes
