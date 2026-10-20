@@ -27,14 +27,6 @@ async function submitAndCollectLinks(page: Page, marker: string, text: string) {
   };
 }
 
-/** Whether a visitor looking at the feed can see `text`. */
-async function feedShows(page: Page, text: string) {
-  const feed = new FeedPage(page);
-  await feed.goto();
-  await expect(feed.allAaronisms).toBeAttached();
-  return (await page.getByText(text).count()) > 0;
-}
-
 test.describe('moderation by email link', () => {
   test('emails every moderator, then approving from the email publishes the entry', async ({
     page,
@@ -65,14 +57,14 @@ test.describe('moderation by email link', () => {
     // Reloading, which a scanner or an impatient click might do, still changes nothing.
     await page.reload();
     await expect(moderate.approve).toBeVisible();
-    expect(await feedShows(page, quote)).toBe(false);
+    expect(await new FeedPage(page).shows(quote)).toBe(false);
 
     await moderate.goto(links.second.approve);
     await moderate.approve.click();
     await expect(moderate.notice('Approved')).toBeVisible();
 
     // The entry is on the feed straight away.
-    expect(await feedShows(page, quote)).toBe(true);
+    expect(await new FeedPage(page).shows(quote)).toBe(true);
 
     // The other moderator sees who decided, with nothing left to click.
     await moderate.goto(links.first.approve);
@@ -96,7 +88,7 @@ test.describe('moderation by email link', () => {
     await moderate.reject.click();
     await expect(moderate.notice('Rejected')).toBeVisible();
 
-    expect(await feedShows(page, quote)).toBe(false);
+    expect(await new FeedPage(page).shows(quote)).toBe(false);
     const search = new SearchPage(page);
     await search.search(quote);
     await expect(search.noMatches(quote)).toBeVisible();
@@ -153,7 +145,7 @@ test.describe('moderation by email link', () => {
     // Still waiting for review: the link still offers the decision, and the feed lacks it.
     await moderate.goto(links.first.approve);
     await expect(moderate.approve).toBeVisible();
-    expect(await feedShows(page, quote)).toBe(false);
+    expect(await new FeedPage(page).shows(quote)).toBe(false);
   });
 
   test('an expired link says so and changes nothing', async ({ page, marker }) => {
@@ -170,7 +162,7 @@ test.describe('moderation by email link', () => {
     await moderate.goto(links.first.approve);
     await expect(moderate.notice('This link has expired')).toBeVisible();
     await expect(moderate.approve).toHaveCount(0);
-    expect(await feedShows(page, quote)).toBe(false);
+    expect(await new FeedPage(page).shows(quote)).toBe(false);
   });
 
   test('a made-up link is not valid', async ({ page }) => {
@@ -219,7 +211,7 @@ test.describe('moderation by email link', () => {
     await expect(
       page.getByText(winner === 'Approved' ? `Approved by ${first}` : `Rejected by ${second}`),
     ).toBeVisible();
-    expect(await feedShows(page, quote)).toBe(winner === 'Approved');
+    expect(await new FeedPage(page).shows(quote)).toBe(winner === 'Approved');
     await otherContext.close();
   });
 });
