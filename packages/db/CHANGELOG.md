@@ -1,5 +1,11 @@
 # @aaronisms/db
 
+## 0.4.1
+
+### Patch Changes
+
+- 756ddf6: List the newest posts first, including among entries that share a date
+
 ## 0.4.0
 
 ### Minor Changes

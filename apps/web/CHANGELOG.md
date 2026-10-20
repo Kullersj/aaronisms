@@ -1,5 +1,13 @@
 # @aaronisms/web
 
+## 0.7.2
+
+### Patch Changes
+
+- 756ddf6: List the newest posts first, including among entries that share a date
+- Updated dependencies [756ddf6]
+  - @aaronisms/db@0.4.1
+
 ## 0.7.1
 
 ### Patch Changes

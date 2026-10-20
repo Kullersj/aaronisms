@@ -1,5 +1,11 @@
 # @aaronisms/e2e
 
+## 0.4.6
+
+### Patch Changes
+
+- 756ddf6: List the newest posts first, including among entries that share a date
+
 ## 0.4.5
 
 ### Patch Changes
