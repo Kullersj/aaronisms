@@ -14,7 +14,7 @@ Verify a sending domain (SPF and DKIM records) and create an API key. `EMAIL_FRO
 
 ## 3. Vercel
 
-Set these for **Production**: `SITE_URL` (the public origin, `https://www.aaronisms.net`), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `TURNSTILE_SECRET_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (a real Cloudflare Turnstile widget), `RESEND_API_KEY`, `EMAIL_FROM`, `MODERATOR_EMAILS` (the first address is the default moderator and the admin). Leave `EMAIL_TRANSPORT` unset: production refuses to start with `smtp` or the Turnstile test keys.
+Set these for **Production**: `SITE_URL` (the public origin, `https://www.aaronisms.net`), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `TURNSTILE_SECRET_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (a real Cloudflare Turnstile widget), `RESEND_API_KEY`, `EMAIL_FROM`, `MODERATOR_EMAILS` (every address can sign in to the admin; the first is the default moderator, who gets failure alerts and is the `Reply-To`). Leave `EMAIL_TRANSPORT` unset: production refuses to start with `smtp` or the Turnstile test keys.
 
 Set copies for **Preview** with Cloudflare's test keys (`1x0000000000000000000000000000000AA` and `1x00000000000000000000AA`), so previews can submit without real Turnstile, and with the preview's own `SITE_URL` if you want working moderation links there.
 

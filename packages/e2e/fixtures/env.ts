@@ -9,7 +9,7 @@ export function requireEnv(name: string): string {
   return value;
 }
 
-/** The moderators the running site was started with: the first is the default moderator and admin. */
+/** The moderators the running site was started with. All can use the admin; the first is the default moderator. */
 export function moderators(): [string, string, ...string[]] {
   const emails = requireEnv('MODERATOR_EMAILS')
     .split(',')

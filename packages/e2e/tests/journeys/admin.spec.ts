@@ -223,27 +223,38 @@ test.describe('admin, everyone else', () => {
     await expect(page).toHaveURL(/\/admin\/login/);
   });
 
-  test('a moderator who is not the default gets no sign-in link', async ({
+  test('any moderator, not only the default, can sign in', async ({ browser, clientIpHeaders }) => {
+    const context = await browser.newContext({ extraHTTPHeaders: clientIpHeaders });
+    const page = await context.newPage();
+    await signInAsAdmin(page, second);
+    for (const path of ['/admin/entries', '/admin/speakers']) {
+      await page.goto(path);
+      await expect(page).toHaveURL(new RegExp(`${path}$`));
+    }
+    await context.close();
+  });
+
+  test('an address that is not a moderator gets no sign-in link', async ({
     page,
     browser,
     clientIpHeaders,
   }) => {
-    const before = await countSignInEmailsTo(second);
+    const outsider = `outsider-${crypto.randomUUID().slice(0, 8)}@example.com`;
     await page.goto('/admin/login');
-    await page.getByLabel('Email address').fill(second);
+    await page.getByLabel('Email address').fill(outsider);
     await page.getByRole('button', { name: 'Email me a sign-in link' }).click();
-    // The reply is the same as for the real admin, so the form reveals nothing.
+    // The reply is the same as for a moderator, so the form reveals nothing.
     await expect(page.getByText('a link is on its way')).toBeVisible();
 
-    // Mail is sent in the order requested, so once the real admin's link has arrived, a link
-    // for the other moderator would have too.
+    // Mail is sent in the order requested, so once a moderator's link has arrived, a link for
+    // the outsider would have too.
     const context = await browser.newContext({ extraHTTPHeaders: clientIpHeaders });
     await signInAsAdmin(await context.newPage());
     await context.close();
-    expect(await countSignInEmailsTo(second)).toBe(before);
+    expect(await countSignInEmailsTo(outsider)).toBe(0);
   });
 
-  test('a signed-in non-default moderator is turned away from every admin page', async ({
+  test('a signed-in non-moderator is turned away from every admin page', async ({
     page,
     context,
   }) => {

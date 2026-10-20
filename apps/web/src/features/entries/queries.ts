@@ -83,22 +83,14 @@ export async function fetchRandomEntrySlug(exclude?: string): Promise<string | n
   const slug = (data as string | null) ?? null;
   if (!exclude || slug !== exclude) return slug;
 
-  // Picked the entry the visitor is already on: pick again among the others.
-  const { count, error: countError } = await client
-    .from('entries')
-    .select('slug', { count: 'exact', head: true })
-    .eq('status', 'published')
-    .neq('slug', exclude);
-  if (countError) throw new Error(`Could not pick a random entry: ${countError.message}`);
-  if (!count) return slug;
-  const offset = Math.floor(Math.random() * count);
-  const { data: rows, error: pickError } = await client
+  // Picked the entry the visitor is already on: pick again among the others. One query, so
+  // entries published or unpublished meanwhile cannot leave it with nothing to pick.
+  const { data: others, error: othersError } = await client
     .from('entries')
     .select('slug')
     .eq('status', 'published')
-    .neq('slug', exclude)
-    .order('slug')
-    .range(offset, offset);
-  if (pickError) throw new Error(`Could not pick a random entry: ${pickError.message}`);
-  return rows[0]?.slug ?? slug;
+    .neq('slug', exclude);
+  if (othersError) throw new Error(`Could not pick a random entry: ${othersError.message}`);
+  if (!others.length) return slug;
+  return others[Math.floor(Math.random() * others.length)]?.slug ?? slug;
 }
