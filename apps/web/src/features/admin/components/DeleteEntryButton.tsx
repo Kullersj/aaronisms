@@ -13,7 +13,7 @@ export function DeleteEntryButton({ entryId }: { entryId: string }) {
         <input type="hidden" name="entryId" value={entryId} />
         <p className="text-muted-foreground text-sm">
           It comes off the site but is kept, with its lines and photo. To bring it back, set its
-          status again here.
+          status again here. Anyone who already has the photo&apos;s direct link can still open it.
         </p>
         <Button type="submit" className="self-start">
           Delete entry

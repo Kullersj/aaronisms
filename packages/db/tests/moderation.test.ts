@@ -325,14 +325,21 @@ describe('moderation functions', () => {
       .eq('entry_id', id)
       .is('used_at', null);
     expect(open.data).toEqual([]);
-    // Anon never sees a deleted entry.
-    expect((await anon.from('entries').select('id').eq('id', id)).data).toEqual([]);
 
     const again = await admin.rpc('delete_entry', {
       p_entry_id: id,
       p_admin_email: 'first@example.com',
     });
     expect(again.error?.code).toBe('P0002');
+  });
+
+  it('takes a deleted entry off the public site', async () => {
+    const { id, tokens } = await submit({ text: 'A quote to delete' });
+    await decide(tokens['first@example.com'], 'approve');
+    expect((await anon.from('entries').select('id').eq('id', id)).data).toEqual([{ id }]);
+    await admin.rpc('delete_entry', { p_entry_id: id, p_admin_email: 'first@example.com' });
+    expect((await anon.from('entries').select('id').eq('id', id)).data).toEqual([]);
+    expect((await anon.from('entry_lines').select('id').eq('entry_id', id)).data).toEqual([]);
   });
 
   it('does not let anon call any moderation function', async () => {

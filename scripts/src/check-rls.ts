@@ -111,7 +111,7 @@ export async function checkRls({ url, anonKey, allowNonAnonKey }: CheckOptions) 
       ? null
       : `${entries.filter((e) => e.status !== 'published').length} unpublished row(s) returned`,
   );
-  for (const status of ['pending', 'rejected']) {
+  for (const status of ['pending', 'rejected', 'deleted']) {
     expectEmpty(
       `entries: ${status} rows are filtered`,
       await db.from('entries').select('id').eq('status', status),

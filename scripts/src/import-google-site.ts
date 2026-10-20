@@ -158,7 +158,8 @@ export async function writeToDatabase(
       'Read slugs',
     ) ?? []) {
       const hasLines = (row.entry_lines[0]?.count ?? 0) > 0;
-      if (hasLines || row.status === 'rejected') existing.add(row.slug);
+      // A moderator's decision (rejected or deleted) is never undone by a re-import.
+      if (hasLines || row.status === 'rejected' || row.status === 'deleted') existing.add(row.slug);
       else leftovers.push(row.slug);
     }
   }
