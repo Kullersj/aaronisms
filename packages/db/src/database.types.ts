@@ -160,7 +160,7 @@ isOneToOne: false
         isSetofReturn: false
       } },
 "delete_entry":
-{ Args: { "p_entry_id": string }; Returns: string
+{ Args: { "p_admin_email": string,"p_entry_id": string }; Returns: undefined
                            },
 "entry_result":
 { Args: { "p_entry_id": string,"p_outcome": string }; Returns: Database["public"]['CompositeTypes']["moderation_result"]
@@ -200,7 +200,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "entry_era": "modern"|"college","entry_status": "pending"|"published"|"rejected","line_kind": "line"|"stage"|"context"
+            "entry_era": "modern"|"college","entry_status": "pending"|"published"|"rejected"|"deleted","line_kind": "line"|"stage"|"context"
           }
           CompositeTypes: {
             "moderation_result": {
@@ -322,7 +322,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "entry_era": ["modern", "college"],"entry_status": ["pending", "published", "rejected"],"line_kind": ["line", "stage", "context"]
+            "entry_era": ["modern", "college"],"entry_status": ["pending", "published", "rejected", "deleted"],"line_kind": ["line", "stage", "context"]
           }
         }
 } as const

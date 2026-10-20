@@ -2,7 +2,7 @@ import { Button } from '@aaronisms/ui/button';
 import { deleteEntry } from '../actions';
 
 /**
- * Deletes an entry once the admin opens the warning and confirms. A plain POST form inside a
+ * Deletes an entry (softly) once the admin opens the box and confirms. A plain POST form inside a
  * `<details>`, like the reject box, so it works before (or without) JavaScript.
  */
 export function DeleteEntryButton({ entryId }: { entryId: string }) {
@@ -12,11 +12,11 @@ export function DeleteEntryButton({ entryId }: { entryId: string }) {
       <form action={deleteEntry} className="mt-3 flex flex-col gap-3">
         <input type="hidden" name="entryId" value={entryId} />
         <p className="text-muted-foreground text-sm">
-          It comes off the site and its lines and photo are deleted. This cannot be undone. To hide
-          it but keep a copy, reject it instead.
+          It comes off the site but is kept, with its lines and photo. To bring it back, set its
+          status again here.
         </p>
         <Button type="submit" className="self-start">
-          Delete for good
+          Delete entry
         </Button>
       </form>
     </details>

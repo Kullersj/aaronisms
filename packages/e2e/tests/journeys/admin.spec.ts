@@ -131,7 +131,7 @@ test.describe('admin, signed in as the default moderator', () => {
     await expect.poll(() => feedShows(visitor, `Edited ${marker}`)).toBe(false);
   });
 
-  test('finds a published entry and deletes it', async ({ page, marker }) => {
+  test('finds a published entry, deletes it softly and restores it', async ({ page, marker }) => {
     const quote = `Delete me ${marker}`;
     await submitPending(page, marker, quote);
     const admin = new AdminPage(page);
@@ -140,29 +140,37 @@ test.describe('admin, signed in as the default moderator', () => {
     await expect(admin.queueItem(marker)).toHaveCount(0);
     expect(await feedShows(page, quote)).toBe(true);
 
-    await admin.goto();
-    await admin.nav.getByRole('link', { name: 'Entries' }).click();
-    await page.getByLabel('Filter entries').fill(quote);
-    await page.getByRole('button', { name: 'Filter' }).click();
-    const item = page.getByRole('listitem').filter({ hasText: quote });
+    const openFromList = async () => {
+      await admin.goto();
+      await admin.nav.getByRole('link', { name: 'Entries' }).click();
+      await page.getByLabel('Filter entries').fill(quote);
+      await page.getByRole('button', { name: 'Filter' }).click();
+      return page.getByRole('listitem').filter({ hasText: quote });
+    };
+    let item = await openFromList();
     await expect(item.getByText('Published')).toBeVisible();
     const edit = item.getByRole('link', { name: /^Edit entry / });
     const slug = ((await edit.getAttribute('aria-label')) ?? '').replace('Edit entry ', '');
     await edit.click();
 
     await page.getByText('Delete entry…').click();
-    await expect(page.getByText('This cannot be undone.')).toBeVisible();
-    await page.getByRole('button', { name: 'Delete for good' }).click();
+    await page.getByRole('button', { name: 'Delete entry', exact: true }).click();
     await expect(page).toHaveURL(/\/admin\/entries\?message=/);
     await expect(page.getByText('Entry deleted.')).toBeVisible();
 
-    // Gone from the admin list, the feed and its permalink.
-    await page.getByLabel('Filter entries').fill(quote);
-    await page.getByRole('button', { name: 'Filter' }).click();
-    await expect(page.getByText('Nothing matches that filter.')).toBeVisible();
+    // Off the site, but still listed for the admin as deleted.
     expect(await feedShows(page, quote)).toBe(false);
-    const permalink = await page.goto(`/a/${slug}`);
-    expect(permalink?.status()).toBe(404);
+    expect((await page.goto(`/a/${slug}`))?.status()).toBe(404);
+    item = await openFromList();
+    await expect(item.getByText('Deleted')).toBeVisible();
+
+    // Restoring is a status change on the edit page.
+    await item.getByRole('link', { name: `Edit entry ${slug}` }).click();
+    await expect(page.getByText('Delete entry…')).toHaveCount(0);
+    await admin.status.selectOption('published');
+    await admin.save.click();
+    await expect(page.getByText('Saved.')).toBeVisible();
+    await expect.poll(() => feedShows(page, quote)).toBe(true);
   });
 
   test('renames and merges speakers', async ({ page, marker }) => {

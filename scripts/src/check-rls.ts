@@ -222,7 +222,7 @@ export async function checkRls({ url, anonKey, allowNonAnonKey }: CheckOptions) 
     create_submission: { p_entry_id: 'x', p_said_on: 'x', p_lines: 'x', p_tokens: 'x' },
     apply_entry_edits: { p_entry_id: 'x', p_lines: 'x' },
     merge_speakers: { p_from: 'x', p_into: 'x' },
-    delete_entry: { p_entry_id: 'x' },
+    delete_entry: { p_entry_id: 'x', p_admin_email: 'x' },
     decide_entry: {
       p_token_hash: 'x',
       p_allowed_emails: 'x',

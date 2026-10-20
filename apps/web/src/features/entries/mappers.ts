@@ -1,4 +1,4 @@
-import { entrySchema, type Entry } from '@aaronisms/db/schemas';
+import { entrySchema, type Entry, type EntryStatus } from '@aaronisms/db/schemas';
 
 export type EntryLineRow = {
   id: string;
@@ -14,7 +14,7 @@ export type EntryRow = {
   slug: string;
   said_on: string | null;
   era: 'modern' | 'college';
-  status: 'pending' | 'published' | 'rejected';
+  status: EntryStatus;
   image_path: string | null;
   image_alt: string | null;
   no_preview: boolean;

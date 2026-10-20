@@ -115,6 +115,7 @@ export function AdminEntryForm({
             >
               <option value="published">Published</option>
               <option value="rejected">Rejected</option>
+              <option value="deleted">Deleted</option>
               <option value="pending">Pending</option>
             </Select>
           </div>

@@ -295,25 +295,43 @@ describe('moderation functions', () => {
     ).not.toBeNull();
   });
 
-  it('deletes an entry with its lines and tokens, and keeps its speakers', async () => {
-    const kept = await submit();
+  it('soft-deletes an entry: marks it deleted, keeps its lines and photo, retires its links', async () => {
     const { id } = await submit();
     await admin
       .from('entries')
       .update({ image_path: `${PREFIX}/photo.png` })
       .eq('id', id);
 
-    const deleted = await admin.rpc('delete_entry', { p_entry_id: id });
-    expect(deleted).toMatchObject({ error: null, data: `${PREFIX}/photo.png` });
-    expect((await admin.from('entries').select('id').eq('id', id)).data).toEqual([]);
-    expect((await admin.from('entry_lines').select('id').eq('entry_id', id)).data).toEqual([]);
-    expect((await admin.from('moderation_tokens').select('id').eq('entry_id', id)).data).toEqual(
-      [],
-    );
-    expect((await admin.from('speakers').select('id').eq('id', speakerId)).data).toHaveLength(1);
-    expect((await entryRow(kept.id)).data?.status).toBe('pending');
+    const deleted = await admin.rpc('delete_entry', {
+      p_entry_id: id,
+      p_admin_email: 'first@example.com',
+    });
+    expect(deleted.error).toBeNull();
+    const row = await admin
+      .from('entries')
+      .select('status, image_path, published_at, reviewed_by_email')
+      .eq('id', id)
+      .single();
+    expect(row.data).toEqual({
+      status: 'deleted',
+      image_path: `${PREFIX}/photo.png`,
+      published_at: null,
+      reviewed_by_email: 'first@example.com',
+    });
+    expect((await admin.from('entry_lines').select('id').eq('entry_id', id)).data).toHaveLength(1);
+    const open = await admin
+      .from('moderation_tokens')
+      .select('id')
+      .eq('entry_id', id)
+      .is('used_at', null);
+    expect(open.data).toEqual([]);
+    // Anon never sees a deleted entry.
+    expect((await anon.from('entries').select('id').eq('id', id)).data).toEqual([]);
 
-    const again = await admin.rpc('delete_entry', { p_entry_id: id });
+    const again = await admin.rpc('delete_entry', {
+      p_entry_id: id,
+      p_admin_email: 'first@example.com',
+    });
     expect(again.error?.code).toBe('P0002');
   });
 
@@ -336,7 +354,7 @@ describe('moderation functions', () => {
         p_lines: [],
       }),
       anon.rpc('merge_speakers', { p_from: speakerId, p_into: speakerId }),
-      anon.rpc('delete_entry', { p_entry_id: crypto.randomUUID() }),
+      anon.rpc('delete_entry', { p_entry_id: crypto.randomUUID(), p_admin_email: 'x@example.com' }),
       anon.rpc('consume_rate_limit', {
         p_bucket: `${PREFIX}:anon`,
         p_limit: 5,
