@@ -9,9 +9,8 @@ import { getEntryForReview } from '@/features/moderation/queries';
 import { getServerEnv } from '@/lib/env';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { IMAGE_BUCKET } from '@/lib/supabase/storage';
+import { removePhoto, storePhoto } from '@/lib/supabase/photos';
 import { verifyTurnstile } from '@/lib/turnstile';
-import { imageExtension, sniffImageType } from './image';
 import { buildLinePayload } from './lines';
 import { resolveSpeakerIds } from './speakers';
 
@@ -36,24 +35,11 @@ function parseSubmission(formData: FormData) {
   });
 }
 
-/** Stores the photo and returns its object path; null when the bytes are not a supported image. */
-async function uploadPhoto(entryId: string, image: File): Promise<string | null> {
-  const bytes = new Uint8Array(await image.arrayBuffer());
-  const type = sniffImageType(bytes);
-  if (!type) return null;
-  const path = `submissions/${entryId}.${imageExtension(type)}`;
-  const { error } = await createAdminClient()
-    .storage.from(IMAGE_BUCKET)
-    .upload(path, bytes, { contentType: type });
-  if (error) throw new Error(`Could not store the photo: ${error.message}`);
-  return path;
-}
-
 async function saveSubmission(submission: NewSubmission, ip: string | null) {
   const env = getServerEnv();
   const admin = createAdminClient();
   const entryId = crypto.randomUUID();
-  const imagePath = submission.image ? await uploadPhoto(entryId, submission.image) : undefined;
+  const imagePath = submission.image ? await storePhoto(submission.image, 'private') : undefined;
   if (imagePath === null) return null;
 
   try {
@@ -75,7 +61,7 @@ async function saveSubmission(submission: NewSubmission, ip: string | null) {
     if (error) throw new Error(error.message);
     return { entryId, slug, tokens };
   } catch (error) {
-    if (imagePath) await admin.storage.from(IMAGE_BUCKET).remove([imagePath]);
+    await removePhoto(imagePath);
     throw error;
   }
 }

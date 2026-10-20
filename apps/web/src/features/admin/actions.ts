@@ -7,15 +7,14 @@ import { z } from 'zod';
 import { ENTRIES_TAG } from '@/features/entries/queries';
 import { decideAsAdmin, type DecisionOutcome } from '@/features/moderation/decisions';
 import { getEntryForReview } from '@/features/moderation/queries';
-import { imageExtension, sniffImageType } from '@/features/submissions/image';
 import { buildLinePayload } from '@/features/submissions/lines';
 import { resolveSpeakerIds } from '@/features/submissions/speakers';
 import { requireAdmin } from '@/lib/auth';
 import { getServerEnv } from '@/lib/env';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { movePhoto, removePhoto, storePhoto } from '@/lib/supabase/photos';
 import { createSessionClient } from '@/lib/supabase/session';
-import { IMAGE_BUCKET } from '@/lib/supabase/storage';
 import { adminEntrySchema } from './schema';
 
 export type LoginState = { message: string } | null;
@@ -94,19 +93,6 @@ export async function rejectEntryAsAdmin(formData: FormData): Promise<void> {
   redirect(queueUrl(outcome));
 }
 
-/** Stores a replacement photo and returns its path, or null if it is not a supported image. */
-async function uploadReplacement(entryId: string, image: File): Promise<string | null> {
-  const bytes = new Uint8Array(await image.arrayBuffer());
-  const type = sniffImageType(bytes);
-  if (!type) return null;
-  const path = `entries/${entryId}-${crypto.randomUUID().slice(0, 8)}.${imageExtension(type)}`;
-  const { error } = await createAdminClient()
-    .storage.from(IMAGE_BUCKET)
-    .upload(path, bytes, { contentType: type });
-  if (error) throw new Error(`Could not store the photo: ${error.message}`);
-  return path;
-}
-
 /**
  * Saves an admin's edits to any entry: date, lines, photo, alt text and, for decided entries,
  * status. For a pending entry the "approve" intent saves and publishes in one transaction.
@@ -135,7 +121,8 @@ export async function saveEntry(entryId: string, formData: FormData): Promise<Sa
   let uploaded: string | null = null;
   let imagePath = removeImage ? null : current.imagePath;
   if (upload instanceof File && upload.size > 0) {
-    uploaded = await uploadReplacement(entryId, upload);
+    // Only a published entry's photo is public; any other status keeps it private.
+    uploaded = await storePhoto(upload, current.status === 'published' ? 'public' : 'private');
     if (!uploaded) return { ok: false, message: 'That file is not a supported image.' };
     imagePath = uploaded;
   }
@@ -145,17 +132,18 @@ export async function saveEntry(entryId: string, formData: FormData): Promise<Sa
       .from('entries')
       .update({ image_path: current.imagePath, image_alt: current.imageAlt })
       .eq('id', entryId);
-    if (uploaded) await client.storage.from(IMAGE_BUCKET).remove([uploaded]);
+    await removePhoto(uploaded);
   };
   const imageUpdate = await client
     .from('entries')
     .update({ image_path: imagePath, image_alt: imageAlt || null })
     .eq('id', entryId);
   if (imageUpdate.error) {
-    if (uploaded) await client.storage.from(IMAGE_BUCKET).remove([uploaded]);
+    await removePhoto(uploaded);
     throw new Error(`Could not save the photo: ${imageUpdate.error.message}`);
   }
 
+  let photoMove: 'public' | 'private' | null = null;
   try {
     if (current.status === 'pending' && intent === 'approve') {
       const outcome = await decideAsAdmin(entryId, admin.email, { kind: 'approve' }, edit);
@@ -185,27 +173,32 @@ export async function saveEntry(entryId: string, formData: FormData): Promise<Sa
           })
           .eq('id', entryId);
         if (statusError) throw new Error(`Could not change the status: ${statusError.message}`);
+        photoMove = status === 'published' ? 'public' : 'private';
       }
     }
   } catch (error) {
     await undoImage();
     throw error;
   }
-  // A replaced or removed photo stays in storage: deletion on this site is always soft.
+  // The entry is saved; now delete a replaced or removed photo, and put the photo where the new
+  // status wants it (public only while published). Neither can fail the save, so they only log.
+  if (current.imagePath && current.imagePath !== imagePath) await removePhoto(current.imagePath);
+  if (photoMove) await movePhoto(entryId, imagePath, photoMove);
 
   revalidateTag(ENTRIES_TAG, { expire: 0 });
   return { ok: true };
 }
 
 /**
- * Deletes an entry softly: it comes off the site but keeps its lines and photo, so it can be
- * restored by setting another status on its edit page.
+ * Deletes an entry softly: it comes off the site but keeps its lines and photo (moved to the
+ * private bucket), so it can be restored by setting another status on its edit page.
  */
 export async function deleteEntry(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
   const entryId = field(formData, 'entryId');
   if (!z.uuid().safeParse(entryId).success) redirect('/admin/entries');
-  const { error } = await createAdminClient().rpc('delete_entry', {
+  const client = createAdminClient();
+  const { error } = await client.rpc('delete_entry', {
     p_entry_id: entryId,
     p_admin_email: admin.email,
   });
@@ -213,6 +206,12 @@ export async function deleteEntry(formData: FormData): Promise<void> {
     redirect(`/admin/entries?message=${encodeURIComponent('That entry was already deleted.')}`);
   }
   if (error) throw new Error(`Could not delete the entry: ${error.message}`);
+  const { data } = await client
+    .from('entries')
+    .select('image_path')
+    .eq('id', entryId)
+    .maybeSingle();
+  await movePhoto(entryId, data?.image_path ?? null, 'private');
   revalidateTag(ENTRIES_TAG, { expire: 0 });
   redirect(`/admin/entries?message=${encodeURIComponent('Entry deleted.')}`);
 }

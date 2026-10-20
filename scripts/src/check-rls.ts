@@ -15,6 +15,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY) unless given as flags. The key is the publishable
 (sb_publishable_...) or the legacy anon JWT. Exits 1 and lists every failed check.`;
 
 const BUCKET = 'aaronism-images';
+const PRIVATE_BUCKET = 'aaronism-images-private';
 const NIL = '00000000-0000-0000-0000-000000000000';
 /** Postgres `insufficient_privilege`: what a missing grant or revoked execute looks like. */
 const DENIED = '42501';
@@ -160,6 +161,18 @@ export async function checkRls({ url, anonKey, allowNonAnonKey }: CheckOptions) 
       ? `the request failed: ${listed.error.message}`
       : listed.data.length
         ? `listed ${listed.data.length} object(s)`
+        : null,
+  );
+
+  // The private bucket (photos of pending, rejected and deleted entries) has no policy and no
+  // public flag, so listing returns nothing (packages/db/tests/rls.test.ts also checks reads).
+  const privateListed = await db.storage.from(PRIVATE_BUCKET).list('', { limit: 5 });
+  record(
+    'storage: the private bucket cannot be listed',
+    privateListed.error
+      ? `the request failed: ${privateListed.error.message}`
+      : privateListed.data.length
+        ? `listed ${privateListed.data.length} object(s)`
         : null,
   );
 

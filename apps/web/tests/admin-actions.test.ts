@@ -1,9 +1,11 @@
+import sharp from 'sharp';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type Call = { table: string; op: string; values?: Record<string, unknown> };
 
 const calls: Call[] = [];
 const removed: string[][] = [];
+const uploaded: string[] = [];
 const state = {
   entry: null as unknown,
   rpcError: null as { message: string } | null,
@@ -33,7 +35,10 @@ vi.mock('@/lib/supabase/admin', () => ({
     },
     storage: {
       from: () => ({
-        upload: async () => ({ error: null }),
+        upload: async (path: string) => {
+          uploaded.push(path);
+          return { error: null };
+        },
         remove: async (paths: string[]) => {
           removed.push(paths);
           return { error: null };
@@ -46,7 +51,9 @@ vi.mock('@/lib/supabase/admin', () => ({
 const { saveEntry } = await import('@/features/admin/actions');
 
 const ID = '10000000-0000-4000-8000-000000000001';
-const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+const PNG = await sharp({ create: { width: 2, height: 2, channels: 3, background: '#fff' } })
+  .png()
+  .toBuffer();
 const OLD_PHOTO = { image_path: 'entries/old.png', image_alt: 'old alt' };
 
 function entry(status: string) {
@@ -74,6 +81,7 @@ function form(overrides: Record<string, unknown> = {}, withPhoto = false) {
 beforeEach(() => {
   calls.length = 0;
   removed.length = 0;
+  uploaded.length = 0;
   state.entry = entry('pending');
   state.rpcError = null;
   state.decision = 'decided';
@@ -114,8 +122,9 @@ describe('saveEntry', () => {
     await expect(saveEntry(ID, form({}, true))).rejects.toThrow('Could not save the entry');
     expect(calls.filter((c) => c.op === 'update').at(-1)?.values).toEqual(OLD_PHOTO);
     expect(removed).toHaveLength(1);
-    expect(removed[0]?.[0]).toMatch(/^entries\/.+\.png$/);
-    expect(removed[0]?.[0]).not.toBe('entries/old.png');
+    // A pending entry's new photo goes to the private bucket, under a random name.
+    expect(removed[0]?.[0]).toMatch(/^private\/[0-9a-f-]{36}\.png$/);
+    expect(removed[0]).toEqual(uploaded);
   });
 
   it('puts the photo back when someone else decided the entry first', async () => {
@@ -124,5 +133,40 @@ describe('saveEntry', () => {
     expect(result).toMatchObject({ ok: false });
     expect(removed).toHaveLength(1);
     expect(calls.filter((c) => c.op === 'update').at(-1)?.values).toEqual(OLD_PHOTO);
+  });
+
+  it('deletes the old photo once a replacement is saved; a published entry keeps it public', async () => {
+    state.entry = entry('published');
+    const result = await saveEntry(
+      ID,
+      form({ status: 'published', expectedStatus: 'published' }, true),
+    );
+    expect(result).toEqual({ ok: true });
+    expect(uploaded[0]).toMatch(/^entries\/[0-9a-f-]{36}\.png$/);
+    expect(removed).toEqual([['entries/old.png']]);
+  });
+
+  it('deletes the photo from storage when the admin removes it', async () => {
+    state.entry = entry('published');
+    const result = await saveEntry(
+      ID,
+      form({ status: 'published', expectedStatus: 'published', removeImage: true }),
+    );
+    expect(result).toEqual({ ok: true });
+    expect(calls).toContainEqual({
+      table: 'entries',
+      op: 'update',
+      values: { image_path: null, image_alt: 'new alt' },
+    });
+    expect(removed).toEqual([['entries/old.png']]);
+  });
+
+  it('keeps the old photo when the save fails', async () => {
+    state.entry = entry('published');
+    state.rpcError = { message: 'boom' };
+    await expect(
+      saveEntry(ID, form({ status: 'published', expectedStatus: 'published', removeImage: true })),
+    ).rejects.toThrow('Could not save the entry');
+    expect(removed).toEqual([]);
   });
 });

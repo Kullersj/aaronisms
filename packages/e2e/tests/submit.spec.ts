@@ -194,8 +194,8 @@ test.describe('submit form', () => {
     await submit.photo.setInputFiles({ name: 'dot.png', mimeType: 'image/png', buffer: DOT_PNG });
     await submit.submit.click();
     await expect(submit.thanks).toBeVisible();
-    // The photo only shows once a moderator publishes it; here, check it was stored.
-    expect((await findEntry(marker))?.image_path).toMatch(/^submissions\/.+\.png$/);
+    // The photo only shows once a moderator publishes it; here, check it was stored privately.
+    expect((await findEntry(marker))?.image_path).toMatch(/^private\/[0-9a-f-]{36}\.png$/);
   });
 
   test('refuses a file that only claims to be an image', async ({ page, marker }) => {

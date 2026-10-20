@@ -93,6 +93,7 @@ export function AdminEntryForm({
           {imageUrl && !removeImage ? (
             <Image
               src={imageUrl}
+              unoptimized
               alt={alt}
               width={600}
               height={450}

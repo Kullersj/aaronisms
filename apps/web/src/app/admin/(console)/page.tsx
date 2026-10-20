@@ -4,6 +4,7 @@ import { approveEntryAsAdmin, rejectEntryAsAdmin } from '@/features/admin/action
 import { DecisionPanel } from '@/features/moderation/components/DecisionPanel';
 import { getPendingEntries } from '@/features/moderation/queries';
 import { requireAdmin } from '@/lib/auth';
+import { reviewPhotoUrl } from '@/lib/supabase/photos';
 
 type PageProps = { searchParams: Promise<{ message?: string }> };
 
@@ -15,6 +16,7 @@ export default async function AdminQueuePage({ searchParams }: PageProps) {
       {message}
     </p>
   ) : null;
+  const imageUrls = await Promise.all(entries.map((entry) => reviewPhotoUrl(entry.imagePath)));
   if (entries.length === 0) {
     return (
       <div className="flex flex-col gap-4">
@@ -27,12 +29,12 @@ export default async function AdminQueuePage({ searchParams }: PageProps) {
     <div className="flex flex-col gap-4">
       {notice}
       <ul className="flex flex-col gap-8">
-        {entries.map((entry) => (
+        {entries.map((entry, index) => (
           <li key={entry.id} className="flex flex-col gap-3">
             <p className="text-muted-foreground text-sm">
               Submitted by {entry.submittedBy ?? 'Anonymous'}
             </p>
-            <EntryCard entry={entry} headingLevel="h2" linked={false} />
+            <EntryCard entry={entry} headingLevel="h2" linked={false} imageUrl={imageUrls[index]} />
             <DecisionPanel
               target={{ name: 'entryId', value: entry.id }}
               approve={approveEntryAsAdmin}

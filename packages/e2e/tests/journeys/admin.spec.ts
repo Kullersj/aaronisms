@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { BrowserContext, Page } from '@playwright/test';
 import type { Database } from '@aaronisms/db/database.types';
-import { serviceClient } from '../../fixtures/db';
+import { findEntry, serviceClient } from '../../fixtures/db';
 import { ADMIN_STATE, moderators, requireEnv, requireLocalSupabase } from '../../fixtures/env';
 import { signInAsAdmin } from '../../fixtures/admin';
 import { countSignInEmailsTo, moderationLinks, waitForEmail } from '../../fixtures/mailpit';
@@ -12,6 +12,11 @@ import { ModeratePage } from '../../pages/ModeratePage';
 import { SubmitPage } from '../../pages/SubmitPage';
 
 const [first, second] = moderators();
+
+const DOT_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==',
+  'base64',
+);
 
 /** Signs in with a password through the API and hands the session to the browser as its cookie. */
 async function addPasswordSession(context: BrowserContext, email: string, password: string) {
@@ -65,6 +70,33 @@ test.describe('admin, signed in as the default moderator', () => {
     await moderate.goto(links.approve);
     await expect(moderate.notice('Already approved')).toBeVisible();
     await expect(page.getByText(`Approved by ${first}`)).toBeVisible();
+  });
+
+  test('moves a submitted photo to the public bucket when approved', async ({ page, marker }) => {
+    const submit = new SubmitPage(page);
+    await submit.goto();
+    await submit.chooseSpeaker(1, `${marker} Speaker`, { isNew: true });
+    await submit.fillLine(1, `Photo ${marker}`);
+    await submit.name.fill(marker);
+    await submit.photo.setInputFiles({ name: 'dot.png', mimeType: 'image/png', buffer: DOT_PNG });
+    await submit.submit.click();
+    await expect(submit.thanks).toBeVisible();
+    const pending = (await findEntry(marker))?.image_path;
+    expect(pending).toMatch(/^private\//);
+
+    const admin = new AdminPage(page);
+    await admin.goto();
+    await admin.queueItem(marker).getByRole('button', { name: 'Approve' }).click();
+    await expect(admin.queueItem(marker)).toHaveCount(0);
+
+    const published = (await findEntry(marker))?.image_path;
+    expect(published).toMatch(/^entries\/[0-9a-f-]{36}\.png$/);
+    const client = serviceClient();
+    const url = client.storage.from('aaronism-images').getPublicUrl(published ?? '').data.publicUrl;
+    expect((await fetch(url)).status).toBe(200);
+    // The private original is gone.
+    const left = await client.storage.from('aaronism-images-private').list('private');
+    expect(left.data?.some((object) => `private/${object.name}` === pending)).toBe(false);
   });
 
   test('rejects a pending submission from the queue with a reason', async ({ page, marker }) => {

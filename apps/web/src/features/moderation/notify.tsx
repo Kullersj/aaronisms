@@ -2,7 +2,7 @@ import 'server-only';
 import { AlertEmail, NewSubmissionEmail, newSubmissionSubject, sendEmail } from '@aaronisms/email';
 import { formatEntryDate } from '@/features/entries/utils';
 import { getServerEnv } from '@/lib/env';
-import { buildImageUrl } from '@/lib/supabase/storage';
+import { EMAIL_PHOTO_SECONDS, reviewPhotoUrl } from '@/lib/supabase/photos';
 import type { ReviewEntry } from './queries';
 import type { ModerationToken } from './tokens';
 
@@ -31,6 +31,8 @@ export async function alertDefaultModerator(title: string, details: string) {
  */
 export async function notifyModerators(entry: ReviewEntry, tokens: ModerationToken[]) {
   const env = getServerEnv();
+  // Signed so the private photo opens from the email for as long as the links in it work.
+  const imageUrl = await reviewPhotoUrl(entry.imagePath, EMAIL_PHOTO_SECONDS).catch(() => null);
   const results = await Promise.allSettled(
     tokens.map((moderator) =>
       sendEmail(env.email, {
@@ -46,7 +48,7 @@ export async function notifyModerators(entry: ReviewEntry, tokens: ModerationTok
               speaker: line.speaker?.name ?? line.speakerLabel,
               text: line.text,
             }))}
-            imageUrl={entry.imagePath ? buildImageUrl(env.supabaseUrl, entry.imagePath) : null}
+            imageUrl={imageUrl}
             approveUrl={moderationUrl(env.siteUrl, moderator.token, 'approve')}
             rejectUrl={moderationUrl(env.siteUrl, moderator.token, 'reject')}
             editUrl={moderationUrl(env.siteUrl, moderator.token, 'edit')}

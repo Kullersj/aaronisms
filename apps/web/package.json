@@ -26,6 +26,7 @@
     "react-dom": "catalog:",
     "react-hook-form": "^7.90.0",
     "server-only": "^0.0.1",
+    "sharp": "catalog:",
     "sonner": "^2.0.8",
     "zod": "catalog:"
   },
