@@ -1,3 +1,4 @@
+import { crc32 } from 'node:zlib';
 import sharp from 'sharp';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { imageBucket, isPrivateImage } from '@/lib/supabase/storage';
@@ -76,11 +77,16 @@ describe('storePhoto', () => {
   });
 
   it('refuses an image that declares too many pixels', async () => {
+    // A real 1x1 PNG whose header then claims 9000x9000: sharp must refuse it from the header,
+    // without decoding (encoding a real 81-megapixel image is too slow for a unit test).
     const huge = await sharp({
-      create: { width: 9000, height: 9000, channels: 3, background: '#000' },
+      create: { width: 1, height: 1, channels: 3, background: '#000' },
     })
-      .png({ compressionLevel: 9 })
+      .png()
       .toBuffer();
+    huge.writeUInt32BE(9000, 16);
+    huge.writeUInt32BE(9000, 20);
+    huge.writeUInt32BE(crc32(huge.subarray(12, 29)), 29);
     expect(await storePhoto(file(huge, 'big.png'), 'private')).toBeNull();
     expect(stored).toEqual([]);
   });
