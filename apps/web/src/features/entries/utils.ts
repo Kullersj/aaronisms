@@ -23,13 +23,18 @@ function slugCounter(slug: string): number {
   return Number(/^(?:\d{4}-\d{2}-\d{2}|college)-(\d+)$/.exec(slug)?.[1] ?? 0);
 }
 
-/** Newest date first; entries sharing a date keep their original (slug counter) order. */
+/**
+ * Newest date first. Entries sharing a date put the most recently added first; ones added together
+ * (the Google Sites import) keep their original (slug counter) order.
+ */
 export function compareEntries(a: Entry, b: Entry): number {
   if (a.saidOn !== b.saidOn) {
     if (a.saidOn === null) return 1;
     if (b.saidOn === null) return -1;
     return a.saidOn < b.saidOn ? 1 : -1;
   }
+  const added = Date.parse(b.createdAt) - Date.parse(a.createdAt);
+  if (added !== 0) return added;
   return slugCounter(a.slug) - slugCounter(b.slug);
 }
 

@@ -36,8 +36,8 @@ test.describe('speakers', () => {
     await expect(page).toHaveTitle(`${testAaron.name} | Aaronisms`);
     await expect(speakers.entries).toHaveCount(testAaron.aaronisms);
     // Entries keep every line, including other speakers' words.
-    await expect(speakers.entries.nth(0).getByText(SEED.published.sandwich.text)).toBeVisible();
-    await expect(speakers.entries.nth(1).getByText(SEED.published.pumpkin.reply)).toBeVisible();
+    await expect(speakers.entries.nth(0).getByText(SEED.published.pumpkin.reply)).toBeVisible();
+    await expect(speakers.entries.nth(1).getByText(SEED.published.sandwich.text)).toBeVisible();
     await expect(speakers.entries.nth(2).getByText(SEED.published.bicycle.text)).toBeVisible();
   });
 
@@ -54,7 +54,7 @@ test.describe('speakers', () => {
   }) => {
     const speakers = new SpeakerPage(page);
     await new SiteHeader(page).link('Home').click();
-    await new FeedPage(page).permalinkFor(SEED.published.pumpkin.date, 1).click();
+    await new FeedPage(page).permalinkFor(SEED.published.pumpkin.date, 0).click();
     await expect(page).toHaveURL(new RegExp(`/a/${SEED.published.pumpkin.slug}$`));
     await expect(new EntryPage(page).article).toBeVisible();
     await page.getByRole('link', { name: `${pat.name}:` }).click();
