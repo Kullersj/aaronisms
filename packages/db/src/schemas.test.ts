@@ -65,10 +65,15 @@ describe('entryEditSchema', () => {
     expect(entryEditSchema.safeParse({ saidOn: '12/10/2026', lines }).success).toBe(false);
   });
 
-  it('applies the same line rules as a submission', () => {
+  it('needs a line with text, but keeps imported shapes a submission would refuse', () => {
     expect(entryEditSchema.safeParse({ saidOn: null, lines: [] }).success).toBe(false);
+    const empty = [{ speaker: 'Test Aaron', text: ' ', kind: 'line' }];
+    expect(entryEditSchema.safeParse({ saidOn: null, lines: empty }).success).toBe(false);
+    // Imported entries can have spoken lines with no speaker and lines longer than a submission allows.
     const nobody = [{ speaker: null, text: 'Hi', kind: 'line' }];
-    expect(entryEditSchema.safeParse({ saidOn: null, lines: nobody }).success).toBe(false);
+    expect(entryEditSchema.safeParse({ saidOn: null, lines: nobody }).success).toBe(true);
+    const long = [{ speaker: 'Test Aaron', text: 'a'.repeat(5000), kind: 'line' }];
+    expect(entryEditSchema.safeParse({ saidOn: null, lines: long }).success).toBe(true);
   });
 });
 
