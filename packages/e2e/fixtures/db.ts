@@ -1,16 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@aaronisms/db/database.types';
-import { requireEnv } from './env';
+import { requireEnv, requireLocalSupabase } from './env';
 
 /** Service-role client for test setup and assertions. Never used by the pages under test. */
 export function serviceClient() {
-  return createClient<Database>(
-    requireEnv('SUPABASE_URL'),
-    requireEnv('SUPABASE_SERVICE_ROLE_KEY'),
-    {
-      auth: { persistSession: false },
-    },
-  );
+  return createClient<Database>(requireLocalSupabase(), requireEnv('SUPABASE_SERVICE_ROLE_KEY'), {
+    auth: { persistSession: false },
+  });
 }
 
 const ENTRY_COLUMNS =

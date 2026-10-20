@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { test as base, type Browser } from '@playwright/test';
 import { deleteTestData, findEntry } from './db';
 import { AdminPage } from '../pages/AdminPage';
-import { ADMIN_STATE } from './env';
+import { ADMIN_STATE, requireLocalSupabase } from './env';
 
 type Fixtures = {
   /** A unique submitter name; every entry a test submits carries it, so it can be found and cleaned up. */
@@ -50,6 +50,8 @@ export const test = base.extend<Fixtures>({
   },
 
   marker: async ({ browser, clientIpHeaders }, use) => {
+    // Before the test submits anything: these tests write to the stack behind SUPABASE_URL.
+    requireLocalSupabase();
     const marker = `e2e-${randomUUID().slice(0, 8)}`;
     await use(marker);
     const entry = await findEntry(marker);

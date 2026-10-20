@@ -1,3 +1,5 @@
+import { assertLocalSupabaseUrl } from '@aaronisms/db/testing/local-only';
+
 /** Reads a variable the submission and moderation journeys need, with a clear error if it is unset. */
 export function requireEnv(name: string): string {
   const value = process.env[name];
@@ -7,6 +9,17 @@ export function requireEnv(name: string): string {
     );
   }
   return value;
+}
+
+/**
+ * SUPABASE_URL for the service-role client, after checking it is a local stack (or that
+ * ALLOW_REMOTE_SUPABASE_TESTS=1 opts out). The submission, moderation and admin journeys create and
+ * delete data and reset passwords, so they must not run against a real project.
+ */
+export function requireLocalSupabase(): string {
+  const url = requireEnv('SUPABASE_URL');
+  assertLocalSupabaseUrl(url);
+  return url;
 }
 
 /** The moderators the running site was started with. All can use the admin; the first is the default moderator. */

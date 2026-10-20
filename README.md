@@ -11,7 +11,7 @@ mise install        # installs the pinned tools
 mise run setup      # pnpm install, start local Supabase, generate DB types
 ```
 
-Without mise, use Node >= 22 and pnpm 10.28 (`corepack enable`), then `pnpm install`. Copy `.env.example` to `.env.local` and fill in the values.
+Without mise, use Node >= 22 and pnpm 10.28 (`corepack enable`), then `pnpm install`. Copy `.env.example` to `apps/web/.env.local` (the only env file read; scripts take their variables from the shell) and fill in the values.
 
 ```sh
 pnpm dev            # run the site at http://localhost:3000 (needs local Supabase, see below)
@@ -21,7 +21,7 @@ pnpm e2e            # Playwright against the built app (builds web first)
 pnpm format         # prettier
 ```
 
-For `pnpm e2e` on a fresh machine, install a browser once with `pnpm --filter @aaronisms/e2e exec playwright install chromium`. Set `BASE_URL` to test an already-running deployment, or `PW_CHROMIUM_PATH` to use an existing Chromium binary.
+For `pnpm e2e` on a fresh machine, install a browser once with `pnpm --filter @aaronisms/e2e exec playwright install chromium`. Set `BASE_URL` to run the read-only public specs against an already-running deployment (the submission, moderation and admin journeys write to the database behind `SUPABASE_URL` and refuse to run unless it is a local stack, hostname `127.0.0.1`, `localhost` or `::1`; set `ALLOW_REMOTE_SUPABASE_TESTS=1` only if you really mean to run them against another project), or `PW_CHROMIUM_PATH` to use an existing Chromium binary.
 
 ### Running the site locally
 
@@ -77,7 +77,7 @@ pnpm --filter @aaronisms/email dev     # http://localhost:3001
 - **`/speakers`** lists speakers who have at least one line in a published entry, with line counts. **`/speakers/<slug>`** shows every published entry that speaker is in. Speaker names on cards link there, and a speaker with nothing published is a 404. Both read through the anon client, so RLS keeps pending and rejected lines out of the counts.
 - **`/random`** is a route handler that redirects (307, `Cache-Control: no-store`) to a published entry chosen by `random_published_entry_slug()`, or to `/` when nothing is published. The header's Random link does not prefetch it.
 - **Year jump.** On phones the year list is a single scrolling row pinned to the top, and the sticky year headings sit just below it.
-- **Share images.** `/a/<slug>/opengraph-image` (via `next/og`) renders the date, speakers and lines, trimmed to about 260 characters and four lines, in the header's dark style; unpublished or unknown entries get a 404. `/opengraph-image` is the default card. Next adds a content hash to these URLs, so read them from the page's `og:image` tag. They still carry the `X-Robots-Tag: noindex` header from `next.config.ts`; `tests/seo.spec.ts` checks it.
+- **Share images.** `/a/<slug>/opengraph-image` (via `next/og`) renders the date, speakers and lines, trimmed to about 140 characters (speaker names included) and four lines, in the header's dark style; unpublished or unknown entries get a 404. `/opengraph-image` is the default card. Next adds a content hash to these URLs, so read them from the page's `og:image` tag. They still carry the `X-Robots-Tag: noindex` header from `next.config.ts`; `tests/seo.spec.ts` checks it.
 
 The query tests (`apps/web/tests/public-queries.test.ts`) insert their own made-up rows into the real local database and check what the anon role can and cannot see; there are no mocks. The Playwright specs for these routes are in `packages/e2e/tests/public/` (search, speakers, random, og), with page objects in `packages/e2e/pages/`.
 
@@ -167,7 +167,7 @@ pnpm db:types                       # regenerate src/database.types.ts after a s
 pnpm test                           # all tests, including RLS and importer tests on the real database
 ```
 
-`pnpm test` needs Docker running: the tests use the local Supabase stack (real Postgres), starting it if it is not already up and leaving it running afterwards. Set `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` to point at a different stack instead. `mise run setup` remains the one-time bootstrap.
+`pnpm test` needs Docker running: the tests use the local Supabase stack (real Postgres), starting it if it is not already up and leaving it running afterwards. Set `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` to point at a different stack instead; the tests refuse a non-local `SUPABASE_URL` (only `127.0.0.1`, `localhost` or `::1`) unless `ALLOW_REMOTE_SUPABASE_TESTS=1` is set, because they insert and delete data. `mise run setup` remains the one-time bootstrap.
 
 Security model: anonymous visitors can only read published entries, their lines, speakers and published memes. Everything else (writes, `moderation_tokens`, pending or rejected entries) goes through the service role in server code. The private entry columns (`submitted_by`, `submitter_ip`, `reviewed_by_email`, `decision_note`) are not granted to the API roles at all, so select explicit columns instead of `select *` from the anon client. The bucket is public, so image URLs serve without a `storage.objects` policy; there is deliberately none, so anon cannot list objects.
 

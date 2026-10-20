@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { BrowserContext, Page } from '@playwright/test';
 import type { Database } from '@aaronisms/db/database.types';
 import { serviceClient } from '../../fixtures/db';
-import { ADMIN_STATE, moderators, requireEnv } from '../../fixtures/env';
+import { ADMIN_STATE, moderators, requireEnv, requireLocalSupabase } from '../../fixtures/env';
 import { signInAsAdmin } from '../../fixtures/admin';
 import { countSignInEmailsTo, moderationLinks, waitForEmail } from '../../fixtures/mailpit';
 import { test, expect } from '../../fixtures/test';
@@ -15,7 +15,7 @@ const [first, second] = moderators();
 
 /** Signs in with a password through the API and hands the session to the browser as its cookie. */
 async function addPasswordSession(context: BrowserContext, email: string, password: string) {
-  const url = requireEnv('SUPABASE_URL');
+  const url = requireLocalSupabase();
   const anon = createClient<Database>(url, requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'), {
     auth: { persistSession: false },
   });

@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc",
+    "typecheck": "next typegen && tsc",
     "test": "vitest run"
   },
   "dependencies": {
