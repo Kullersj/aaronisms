@@ -21,7 +21,7 @@
   },
   "devDependencies": {
     "@aaronisms/config": "workspace:*",
-    "@supabase/supabase-js": "^2.118.0",
+    "@supabase/supabase-js": "catalog:",
     "@types/node": "catalog:",
     "eslint": "catalog:",
     "supabase": "2.121.0",

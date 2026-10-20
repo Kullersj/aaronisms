@@ -25,7 +25,3 @@ export function CardHeader({ className, ...props }: ComponentProps<'div'>) {
 export function CardContent({ className, ...props }: ComponentProps<'div'>) {
   return <div className={cn('flex flex-col gap-3 px-5 py-4 sm:px-6', className)} {...props} />;
 }
-
-export function CardFooter({ className, ...props }: ComponentProps<'div'>) {
-  return <div className={cn('flex items-center px-5 pb-5 sm:px-6', className)} {...props} />;
-}

@@ -25,7 +25,6 @@
     "@aaronisms/config": "workspace:*",
     "@changesets/cli": "^3.0.3",
     "@lhci/cli": "^0.15.1",
-    "eslint": "catalog:",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "prettier": "catalog:",
