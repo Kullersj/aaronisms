@@ -1,5 +1,11 @@
 # @aaronisms/web
 
+## 0.5.1
+
+### Patch Changes
+
+- 47f0665: Tell the admin when Supabase's sign-in email limit is reached, instead of a generic "could not send" message.
+
 ## 0.5.0
 
 ### Minor Changes
