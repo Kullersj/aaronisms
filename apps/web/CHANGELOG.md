@@ -1,5 +1,15 @@
 # @aaronisms/web
 
+## 0.6.0
+
+### Minor Changes
+
+- 7c3b060: Let every address in `MODERATOR_EMAILS` sign in to `/admin`, not only the first. The first address stays the default moderator: the `Reply-To` on moderation emails and the recipient of failure alerts.
+
+### Patch Changes
+
+- 119c1c7: Random never sends you back to the entry you are on, even while entries are being published or unpublished at the same moment.
+
 ## 0.5.1
 
 ### Patch Changes
