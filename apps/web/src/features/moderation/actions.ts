@@ -3,16 +3,17 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { entryEditSchema, type EntryEdit } from '@aaronisms/db/schemas';
+import { field, noteField } from '@/lib/form';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
-import { decideWithToken, type Decision } from './decisions';
+import { decideWithToken, type Decision, type DecisionOutcome } from './decisions';
 import { isTokenShaped } from './tokens';
 
 export type EditResult = { ok: false; message: string };
 
-const MAX_NOTE_LENGTH = 500;
-
-function pageUrl(token: string) {
-  return isTokenShaped(token) ? `/moderate/${token}?done=1` : '/';
+/** `done` is the outcome, so the page can tell "you decided" from "it was already decided". */
+function pageUrl(token: string, outcome?: DecisionOutcome) {
+  if (!isTokenShaped(token)) return '/';
+  return outcome ? `/moderate/${token}?done=${outcome}` : `/moderate/${token}`;
 }
 
 /** Decides, then returns to the page, which shows the result (or why nothing changed). */
@@ -21,18 +22,12 @@ async function decideAndReturn(
   decision: Decision,
   edit?: EntryEdit,
 ): Promise<never> {
-  const url = pageUrl(token);
   const ip = getClientIp(await headers());
   // Over the limit: change nothing and let the page explain.
-  if (await checkRateLimit(RATE_LIMITS.moderate, ip)) {
-    await decideWithToken(token, decision, edit);
-  }
-  redirect(url);
-}
-
-function field(formData: FormData, name: string): string {
-  const value = formData.get(name);
-  return typeof value === 'string' ? value : '';
+  const outcome = (await checkRateLimit(RATE_LIMITS.moderate, ip))
+    ? await decideWithToken(token, decision, edit)
+    : undefined;
+  redirect(pageUrl(token, outcome));
 }
 
 export async function approveByToken(formData: FormData): Promise<void> {
@@ -40,7 +35,7 @@ export async function approveByToken(formData: FormData): Promise<void> {
 }
 
 export async function rejectByToken(formData: FormData): Promise<void> {
-  const note = field(formData, 'note').trim().slice(0, MAX_NOTE_LENGTH);
+  const note = noteField(formData);
   return decideAndReturn(field(formData, 'token'), { kind: 'reject', note: note || undefined });
 }
 

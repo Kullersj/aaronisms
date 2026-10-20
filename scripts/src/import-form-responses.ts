@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
-import { slugForEntry } from '@aaronisms/db/slug';
+import { slugForEntry, slugForSpeaker } from '@aaronisms/db/slug';
 import { parse } from 'csv-parse/sync';
 import {
   DEFAULT_COLUMNS,
@@ -12,7 +12,7 @@ import {
 } from './form-responses';
 import { createSpeakerRegistry } from './google-sites/plan';
 import { resolveUserPath } from './paths';
-import { check, createServiceClient, type Db } from './supabase';
+import { check, createServiceClient, serviceTarget, type Db } from './supabase';
 
 const USAGE = `Usage: tsx src/import-form-responses.ts --csv <responses.csv> [options]
 
@@ -73,17 +73,24 @@ async function main() {
     return;
   }
 
-  const result = await insertPending(createServiceClient(), submissions);
+  const target = serviceTarget();
+  console.error(`Writing to ${target.host}`);
+  const result = await insertPending(createServiceClient(target), submissions);
   console.log(JSON.stringify({ rows: rows.length, unusable, ...result }, null, 2));
 }
 
 export async function insertPending(db: Db, submissions: PendingSubmission[]) {
   const speakers = createSpeakerRegistry();
+  // Speakers are matched by slug, as the web's /submit does, after the alias spellings are merged.
+  const speakerKey = (label: string) => {
+    const name = speakers.canonicalName(label);
+    return name === null ? null : slugForSpeaker(name);
+  };
   const known = new Map(
-    (check(await db.from('speakers').select('id, name'), 'Read speakers') ?? []).map((s) => [
-      speakers.canonicalName(s.name),
-      s.id,
-    ]),
+    (check(await db.from('speakers').select('id, name'), 'Read speakers') ?? []).flatMap((s) => {
+      const key = speakerKey(s.name);
+      return key === null ? [] : [[key, s.id] as const];
+    }),
   );
   const counters = new Map<string, number>();
   const sameDay = new Map<string, string[]>();
@@ -137,9 +144,8 @@ export async function insertPending(db: Db, submissions: PendingSubmission[]) {
     if (!entry) throw new Error('Insert entry: no row returned');
     const { error } = await db.from('entry_lines').insert(
       submission.lines.map((line) => {
-        const speakerId = line.speaker
-          ? known.get(speakers.canonicalName(line.speaker))
-          : undefined;
+        const key = line.speaker ? speakerKey(line.speaker) : null;
+        const speakerId = key === null ? undefined : known.get(key);
         return {
           entry_id: entry.id,
           position: line.position,

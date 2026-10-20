@@ -1,7 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@aaronisms/db/database.types';
-import type { NewSubmissionLine } from '@aaronisms/db/schemas';
 import { speakerNamesBySlug } from './lines';
 
 /**
@@ -10,7 +9,7 @@ import { speakerNamesBySlug } from './lines';
  */
 export async function resolveSpeakerIds(
   client: SupabaseClient<Database>,
-  lines: NewSubmissionLine[],
+  lines: Parameters<typeof speakerNamesBySlug>[0],
 ): Promise<Map<string, string>> {
   const names = speakerNamesBySlug(lines);
   if (names.size === 0) return new Map();

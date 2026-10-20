@@ -52,13 +52,55 @@ async function readImage(file: string): Promise<FoundImage | null> {
   return type ? { bytes, ...type } : null;
 }
 
-async function download(url: string): Promise<FoundImage | null> {
+/** Largest image the importer will download; the storage bucket allows 10 MB, this leaves slack. */
+export const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
+const IMAGE_HOST = /^lh[\w-]*\.googleusercontent\.com$/i;
+
+/** True for an https URL on a Google image host: the only remote source the importer fetches. */
+export function isAllowedImageUrl(src: string): boolean {
   try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+    const url = new URL(src);
+    return url.protocol === 'https:' && IMAGE_HOST.test(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+/** True when `file` is `root` or inside it, so `..` escapes and other roots are refused. */
+export function isInside(root: string, file: string): boolean {
+  const relative = path.relative(path.resolve(root), path.resolve(file));
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+/** Reads a response body, giving up once it passes `max` bytes. */
+async function readLimited(response: Response, max: number): Promise<Buffer | null> {
+  const declared = Number(response.headers.get('content-length'));
+  if (declared > max || !response.body) return null;
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const reader = response.body.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks);
+}
+
+async function download(url: string): Promise<FoundImage | null> {
+  if (!isAllowedImageUrl(url)) return null;
+  try {
+    // Redirects are refused so an allowed host cannot bounce the request somewhere else.
+    const response = await fetch(url, { signal: AbortSignal.timeout(15_000), redirect: 'error' });
     if (!response.ok) return null;
-    const bytes = Buffer.from(await response.arrayBuffer());
-    const type = sniffImage(bytes);
-    return type ? { bytes, ...type } : null;
+    const bytes = await readLimited(response, MAX_IMAGE_BYTES);
+    const type = bytes && sniffImage(bytes);
+    return bytes && type ? { bytes, ...type } : null;
   } catch {
     return null;
   }
@@ -119,7 +161,8 @@ export async function findImage(ref: ImageRef, ctx: ImageContext): Promise<Found
       (m.date === null || ref.saidOn === null || parseDateText(m.date) === ref.saidOn),
   );
   if (item && imagesDir) {
-    const found = await readImage(path.join(imagesDir, item.file));
+    const file = path.join(imagesDir, item.file);
+    const found = isInside(imagesDir, file) ? await readImage(file) : null;
     if (found) return found;
   }
 
@@ -137,7 +180,9 @@ export async function findImage(ref: ImageRef, ctx: ImageContext): Promise<Found
     // Malformed escape such as "%E0%A4%A"; use the raw path.
   }
   const local = path.resolve(ctx.pageDir, decoded);
-  if (!remote && existsSync(local)) {
+  // A src from the saved HTML must not read files outside the export (../../ paths, absolute paths).
+  const roots = [ctx.pageDir, ...(imagesDir ? [imagesDir] : [])];
+  if (!remote && roots.some((root) => isInside(root, local)) && existsSync(local)) {
     const found = await readImage(local);
     if (found) return found;
   }

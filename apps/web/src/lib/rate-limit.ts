@@ -26,8 +26,33 @@ export function getClientIp(headers: Pick<Headers, 'get'>): string | null {
   return ip && isIP(ip) ? ip : null;
 }
 
+/**
+ * The key an address is limited under. A single IPv6 subscriber usually controls a whole /64, so
+ * IPv6 addresses share a bucket per /64 (written as its four groups) instead of one per address.
+ */
+export function ipBucket(ip: string | null): string {
+  if (!ip || isIP(ip) !== 6) return ip ?? 'unknown';
+  // An embedded IPv4 tail fills the last two groups; it is never in the /64, so a placeholder will do.
+  const text = ip
+    .toLowerCase()
+    .replace(/%.*$/, '')
+    .replace(/\d+\.\d+\.\d+\.\d+$/, '0:0');
+  const [head = '', rest] = text.split('::');
+  const first = head ? head.split(':') : [];
+  const last = rest ? rest.split(':') : [];
+  const groups = [
+    ...first,
+    ...Array<string>(Math.max(0, 8 - first.length - last.length)).fill('0'),
+    ...last,
+  ];
+  return `${groups
+    .slice(0, 4)
+    .map((group) => group.padStart(4, '0'))
+    .join(':')}::/64`;
+}
+
 export function rateLimitBucket(policy: RateLimitPolicy, ip: string | null): string {
-  return `${policy.name}:${ip ?? 'unknown'}`;
+  return `${policy.name}:${ipBucket(ip)}`;
 }
 
 /** Records a hit and returns whether the caller is still within the policy. Fails closed. */

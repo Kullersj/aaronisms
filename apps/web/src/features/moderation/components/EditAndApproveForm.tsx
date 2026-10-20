@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { toast } from 'sonner';
 import { entryEditSchema, type EntryEdit } from '@aaronisms/db/schemas';
 import { Button } from '@aaronisms/ui/button';
 import { EntryFields } from '@/features/submissions/components/EntryFields';
@@ -23,8 +24,12 @@ export function EditAndApproveForm({ token, initial, speakers }: EditAndApproveF
   async function onSubmit(edit: EntryEdit) {
     setError(undefined);
     // On success the action redirects back to this page, which then shows the decision.
-    const result = await approveWithEdits(token, edit);
-    if (!result.ok) setError(result.message);
+    try {
+      const result = await approveWithEdits(token, edit);
+      if (!result.ok) setError(result.message);
+    } catch {
+      toast.error('Something went wrong. Please try again.');
+    }
   }
 
   return (

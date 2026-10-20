@@ -8,6 +8,7 @@ const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const options = { auth: { persistSession: false } };
 const BUCKET = 'aaronism-images';
+const PRIVATE_BUCKET = 'aaronism-images-private';
 const PREFIX = 'rls-test';
 const WORD = 'zorblatt';
 
@@ -55,6 +56,12 @@ describe('row-level security (anon)', () => {
       contentType: 'image/png',
       upsert: true,
     });
+    await admin.storage
+      .from(PRIVATE_BUCKET)
+      .upload(`private/${objectPath}`, new Uint8Array([137, 80, 78, 71]), {
+        contentType: 'image/png',
+        upsert: true,
+      });
   });
 
   afterAll(cleanup);
@@ -63,6 +70,7 @@ describe('row-level security (anon)', () => {
     await admin.from('entries').delete().like('slug', `${PREFIX}-%`);
     await admin.from('speakers').delete().eq('slug', PREFIX);
     await admin.storage.from(BUCKET).remove([objectPath]);
+    await admin.storage.from(PRIVATE_BUCKET).remove([`private/${objectPath}`]);
   }
 
   it('reads published entries and their lines', async () => {
@@ -200,5 +208,21 @@ describe('row-level security (anon)', () => {
   it('cannot list bucket objects', async () => {
     const listed = await anon.storage.from(BUCKET).list(PREFIX);
     expect(listed.error !== null || listed.data?.length === 0).toBe(true);
+  });
+
+  it('keeps the private bucket unreadable and unlistable for anon', async () => {
+    const path = `private/${objectPath}`;
+    expect((await anon.storage.from(PRIVATE_BUCKET).download(path)).error).not.toBeNull();
+    const publicUrl = anon.storage.from(PRIVATE_BUCKET).getPublicUrl(path).data.publicUrl;
+    expect((await fetch(publicUrl)).ok).toBe(false);
+    const listed = await anon.storage.from(PRIVATE_BUCKET).list('private');
+    expect(listed.error !== null || listed.data?.length === 0).toBe(true);
+    const upload = await anon.storage
+      .from(PRIVATE_BUCKET)
+      .upload(`private/${PREFIX}-anon.png`, new Uint8Array([1]));
+    expect(upload.error).not.toBeNull();
+    // The service role can still sign a URL for it.
+    const signed = await admin.storage.from(PRIVATE_BUCKET).createSignedUrl(path, 60);
+    expect(signed.data?.signedUrl).toBeTruthy();
   });
 });

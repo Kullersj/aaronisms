@@ -1,16 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@aaronisms/db/database.types';
-import { requireEnv } from './env';
+import { requireEnv, requireLocalSupabase } from './env';
 
 /** Service-role client for test setup and assertions. Never used by the pages under test. */
 export function serviceClient() {
-  return createClient<Database>(
-    requireEnv('SUPABASE_URL'),
-    requireEnv('SUPABASE_SERVICE_ROLE_KEY'),
-    {
-      auth: { persistSession: false },
-    },
-  );
+  return createClient<Database>(requireLocalSupabase(), requireEnv('SUPABASE_SERVICE_ROLE_KEY'), {
+    auth: { persistSession: false },
+  });
 }
 
 const ENTRY_COLUMNS =
@@ -44,7 +40,14 @@ export async function deleteTestData(submittedBy: string, speakerPrefix: string)
     .select('id, image_path')
     .eq('submitted_by', submittedBy);
   const photos = (data ?? []).flatMap((entry) => (entry.image_path ? [entry.image_path] : []));
-  if (photos.length > 0) await client.storage.from('aaronism-images').remove(photos);
+  // Photos under `private/` are in the private bucket; all others are in the public one.
+  const isPrivate = (path: string) => path.startsWith('private/');
+  const publicPhotos = photos.filter((path) => !isPrivate(path));
+  const privatePhotos = photos.filter(isPrivate);
+  if (publicPhotos.length > 0) await client.storage.from('aaronism-images').remove(publicPhotos);
+  if (privatePhotos.length > 0) {
+    await client.storage.from('aaronism-images-private').remove(privatePhotos);
+  }
   await client.from('entries').delete().eq('submitted_by', submittedBy);
   await client.from('speakers').delete().like('name', `${speakerPrefix}%`);
 }

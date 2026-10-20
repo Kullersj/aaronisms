@@ -14,7 +14,8 @@ import {
 } from './google-sites/images';
 import { parseGoogleSitesPage, parseImages, type Era } from './google-sites/parse';
 import { createSpeakerRegistry, planEntries, type PlannedEntry } from './google-sites/plan';
-import { check, chunk, createServiceClient, type Db } from './supabase';
+import { lineSignature } from './form-responses';
+import { check, chunk, createServiceClient, serviceTarget, type Db } from './supabase';
 
 const BUCKET = 'aaronism-images';
 
@@ -24,7 +25,8 @@ const USAGE = `Usage: tsx src/import-google-site.ts --dir <saved pages> [options
   --home|--college|--memes <file>   Explicit page paths (override --dir)
   --images-dir <path>  Folder from fetch-google-site-images.mjs (manifest.json) or other saved images
   --dry-run            Parse and report only; writes nothing
-  --reset              Delete the imported entries (and memes) first, then import again
+  --reset              Delete the imported entries (and memes) first, then import again (needs --yes)
+  --yes                Confirm a destructive --reset against the project that is printed first
 
 Needs SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY unless --dry-run.`;
 
@@ -43,6 +45,7 @@ async function main() {
       'images-dir': { type: 'string' },
       'dry-run': { type: 'boolean', default: false },
       reset: { type: 'boolean', default: false },
+      yes: { type: 'boolean', default: false },
       help: { type: 'boolean', default: false },
     },
   });
@@ -127,7 +130,14 @@ async function main() {
     return;
   }
 
-  const db = createServiceClient();
+  const target = serviceTarget();
+  log(`Writing to ${target.host}`);
+  if (values.reset && !values.yes) {
+    throw new Error(
+      `--reset deletes the imported entries and memes on ${target.host}, including moderation decisions and edits. Run again with --yes to confirm.`,
+    );
+  }
+  const db = createServiceClient(target);
   const result = await writeToDatabase(db, plans, uploads, memeUploads, values.reset);
   console.log(JSON.stringify({ ...summary, ...result }, null, 2));
 }
@@ -148,72 +158,111 @@ export async function writeToDatabase(
     check(await db.from('memes').delete().like('image_path', 'imported/%'), 'Reset memes');
   }
 
-  // An entry with no lines is left over from a failed run: delete it so this run recreates it.
-  // Anything with lines is kept, so a pending form submission that shares a slug is never deleted.
-  const existing = new Set<string>();
+  // Work out which planned entries are already on the site. An entry counts as imported when an
+  // entry on the same date (or any College Years entry, for undated plans) has the same lines, so a
+  // slug taken by a form submission or an admin edit does not hide a real entry.
+  const dates = [...new Set(plans.flatMap((plan) => plan.saidOn ?? []))];
+  const rows: ExistingEntry[] = [];
+  for (const batch of chunk(dates, 100)) {
+    rows.push(...(check(await selectEntries(db).in('said_on', batch), 'Read entries') ?? []));
+  }
+  if (plans.some((plan) => plan.saidOn === null)) {
+    rows.push(
+      ...(check(await selectEntries(db).eq('era', 'college'), 'Read college entries') ?? []),
+    );
+  }
+  const slugRows = new Map(rows.map((row) => [row.slug, row]));
+  const taken = new Set(slugRows.keys());
   const leftovers: string[] = [];
-  for (const batch of chunk(slugs, 100)) {
-    for (const row of check(
-      await db.from('entries').select('slug, status, entry_lines(count)').in('slug', batch),
-      'Read slugs',
-    ) ?? []) {
-      const hasLines = (row.entry_lines[0]?.count ?? 0) > 0;
-      // A moderator's decision (rejected or deleted) is never undone by a re-import.
-      if (hasLines || row.status === 'rejected' || row.status === 'deleted') existing.add(row.slug);
-      else leftovers.push(row.slug);
+  const fresh: { plan: PlannedEntry; slug: string }[] = [];
+  for (const plan of plans) {
+    const signature = lineSignature(plan.lines);
+    const sameScope = rows.filter((row) => row.said_on === plan.saidOn);
+    if (sameScope.some((row) => lineSignature(row.entry_lines) === signature)) continue;
+    // A pending entry that no moderator touched and holds only the start of this entry's lines
+    // (or none) is left over from a failed run: delete it so this run recreates it.
+    const same = slugRows.get(plan.slug);
+    // A moderator's decision (rejected or deleted) is never undone by a re-import.
+    if (same && (same.status === 'rejected' || same.status === 'deleted')) continue;
+    if (same && isPartialImport(same, plan)) {
+      leftovers.push(same.id);
+      taken.delete(plan.slug);
     }
+    // Any other row on the slug is a different entry (for example a form submission): keep it
+    // and give this one the next free slug.
+    const slug = taken.has(plan.slug) ? nextFreeSlug(plan, taken) : plan.slug;
+    taken.add(slug);
+    fresh.push({ plan, slug });
   }
   for (const batch of chunk(leftovers, 100)) {
-    check(await db.from('entries').delete().in('slug', batch), 'Delete incomplete entries');
+    check(await db.from('entries').delete().in('id', batch), 'Delete incomplete entries');
   }
-  const fresh = plans.filter((plan) => !existing.has(plan.slug));
 
-  const speakerRows = speakerNames(fresh).map((name) => ({ name, slug: slugForSpeaker(name) }));
-  const savedSpeakers =
-    check(
-      await db.from('speakers').upsert(speakerRows, { onConflict: 'name' }).select('id, name'),
-      'Upsert speakers',
-    ) ?? [];
-  const speakerIds = new Map(savedSpeakers.map((speaker) => [speaker.name, speaker.id]));
-
-  const publishedAt = new Date().toISOString();
-  const entryIds = new Map(fresh.map((plan) => [plan.slug, crypto.randomUUID()]));
-  for (const upload of fresh.flatMap((plan) => uploads.get(plan.slug) ?? []))
-    await store(db, upload);
-
-  const entryRows = fresh.map((plan) => ({
-    id: entryIds.get(plan.slug) ?? '',
-    slug: plan.slug,
-    said_on: plan.saidOn,
-    era: plan.era,
-    status: 'pending' as const,
-    image_path: uploads.get(plan.slug)?.path ?? null,
+  const speakerRows = speakerNames(fresh.map((item) => item.plan)).map((name) => ({
+    name,
+    slug: slugForSpeaker(name),
   }));
-  for (const batch of chunk(entryRows, 100))
-    check(await db.from('entries').insert(batch), 'Insert entries');
-
-  const lineRows = fresh.flatMap((plan) =>
-    plan.lines.map((line) => ({
-      entry_id: entryIds.get(plan.slug) ?? '',
-      position: line.position,
-      kind: line.kind,
-      speaker_id: line.speakerName ? (speakerIds.get(line.speakerName) ?? null) : null,
-      speaker_label: line.speakerLabel,
-      text: line.text,
-    })),
+  // Match speakers by slug, as the database and the web do. Existing rows keep their name, so an
+  // admin rename or merge is not undone; only missing speakers are inserted.
+  check(
+    await db.from('speakers').upsert(speakerRows, { onConflict: 'slug', ignoreDuplicates: true }),
+    'Upsert speakers',
   );
-  for (const batch of chunk(lineRows, 200))
-    check(await db.from('entry_lines').insert(batch), 'Insert lines');
+  const speakerIds = new Map<string, string>();
+  for (const batch of chunk(
+    speakerRows.map((row) => row.slug),
+    100,
+  )) {
+    for (const speaker of check(
+      await db.from('speakers').select('id, slug').in('slug', batch),
+      'Read speakers',
+    ) ?? [])
+      speakerIds.set(speaker.slug, speaker.id);
+  }
 
-  // Publish only once every line is in, so a failed run never leaves a half-published entry.
-  for (const batch of chunk([...entryIds.values()], 100)) {
+  // Each entry is written as a unit: pending entry, all its lines, then publish. If any step
+  // fails the entry is deleted (its lines cascade), so a failed run never leaves one with only
+  // some of its lines; the run stops and a re-run recreates it.
+  const publishedAt = new Date().toISOString();
+  for (const { plan, slug } of fresh) {
+    const upload = uploads.get(plan.slug);
+    if (upload) await store(db, upload);
+    const id = crypto.randomUUID();
     check(
-      await db
-        .from('entries')
-        .update({ status: 'published', published_at: publishedAt })
-        .in('id', batch),
-      'Publish entries',
+      await db.from('entries').insert({
+        id,
+        slug,
+        said_on: plan.saidOn,
+        era: plan.era,
+        status: 'pending' as const,
+        image_path: upload?.path ?? null,
+      }),
+      'Insert entry',
     );
+    try {
+      const lineRows = plan.lines.map((line) => ({
+        entry_id: id,
+        position: line.position,
+        kind: line.kind,
+        speaker_id: line.speakerName
+          ? (speakerIds.get(slugForSpeaker(line.speakerName)) ?? null)
+          : null,
+        speaker_label: line.speakerLabel,
+        text: line.text,
+      }));
+      for (const batch of chunk(lineRows, 200))
+        check(await db.from('entry_lines').insert(batch), 'Insert lines');
+      check(
+        await db
+          .from('entries')
+          .update({ status: 'published', published_at: publishedAt })
+          .eq('id', id),
+        'Publish entry',
+      );
+    } catch (error) {
+      await db.from('entries').delete().eq('id', id);
+      throw error;
+    }
   }
 
   let memesAdded = 0;
@@ -237,6 +286,40 @@ export async function writeToDatabase(
     entriesSkippedExisting: plans.length - fresh.length,
     memesAdded,
   };
+}
+
+type ExistingEntry = {
+  id: string;
+  slug: string;
+  said_on: string | null;
+  status: string;
+  reviewed_by_email: string | null;
+  entry_lines: { position: number; text: string }[];
+};
+
+const selectEntries = (db: Db) =>
+  db
+    .from('entries')
+    .select('id, slug, said_on, status, reviewed_by_email, entry_lines(position, text)');
+
+/** A pending, never-moderated entry whose lines are a prefix of the plan's (possibly empty). */
+function isPartialImport(row: ExistingEntry, plan: PlannedEntry): boolean {
+  if (row.status !== 'pending' || row.reviewed_by_email !== null) return false;
+  const have = [...row.entry_lines].sort((x, y) => x.position - y.position);
+  return (
+    have.length < plan.lines.length && have.every((line, i) => line.text === plan.lines[i]?.text)
+  );
+}
+
+/** `<date>-N` or `college-N` with N one past the highest taken suffix for the same prefix. */
+function nextFreeSlug(plan: PlannedEntry, taken: Set<string>): string {
+  const prefix = plan.saidOn ? `${plan.saidOn}-` : 'college-';
+  let highest = 0;
+  for (const slug of taken) {
+    const suffix = slug.startsWith(prefix) ? slug.slice(prefix.length) : '';
+    if (/^\d+$/.test(suffix)) highest = Math.max(highest, Number(suffix));
+  }
+  return `${prefix}${highest + 1}`;
 }
 
 function speakerNames(plans: PlannedEntry[]): string[] {

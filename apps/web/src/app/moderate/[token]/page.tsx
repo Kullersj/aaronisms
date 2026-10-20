@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { Card, CardContent } from '@aaronisms/ui/card';
+import { reviewPhotoUrl } from '@/lib/supabase/photos';
 import { EntryCard } from '@/features/entries/components/EntryCard';
 import { EditAndApproveForm } from '@/features/moderation/components/EditAndApproveForm';
 import { DecisionPanel } from '@/features/moderation/components/DecisionPanel';
@@ -94,7 +95,7 @@ export default async function ModeratePage({ params, searchParams }: PageProps) 
         </Notice>
       );
     case 'decided':
-      return <DecidedNotice view={view} justDecided={done === '1'} />;
+      return <DecidedNotice view={view} justDecided={done === 'decided'} />;
     case 'open': {
       const { entry } = view;
       const editing = action === 'edit';
@@ -104,7 +105,12 @@ export default async function ModeratePage({ params, searchParams }: PageProps) 
             Submitted by {entry.submittedBy ?? 'Anonymous'}.{' '}
             {editing ? null : 'Nothing happens until you press a button below.'}
           </p>
-          <EntryCard entry={entry} headingLevel="h2" linked={false} />
+          <EntryCard
+            entry={entry}
+            headingLevel="h2"
+            linked={false}
+            imageUrl={await reviewPhotoUrl(entry.imagePath)}
+          />
           {editing ? (
             <EditAndApproveForm
               token={token}

@@ -1,6 +1,8 @@
 import { Button } from '@aaronisms/ui/button';
 import { Input } from '@aaronisms/ui/input';
 import { EmptyState } from '@/components/layout/EmptyState';
+import { AdminNotice } from '@/features/admin/components/AdminNotice';
+import { adminMessage } from '@/features/admin/messages';
 import { EntryListItem } from '@/features/admin/components/EntryListItem';
 import { getAllEntries, type ReviewEntry } from '@/features/moderation/queries';
 import { requireAdmin } from '@/lib/auth';
@@ -32,11 +34,7 @@ export default async function AdminEntriesPage({ searchParams }: PageProps) {
   const shown = words.length > 0 ? entries.filter((entry) => matches(entry, words)) : entries;
   return (
     <div className="flex flex-col gap-4">
-      {message ? (
-        <p role="status" className="bg-card border-border rounded-md border p-3 text-sm">
-          {message}
-        </p>
-      ) : null}
+      <AdminNotice message={adminMessage(message)} />
       <form action="/admin/entries" className="flex gap-2">
         <Input name="q" type="search" defaultValue={q} aria-label="Filter entries" />
         <Button type="submit" variant="outline">

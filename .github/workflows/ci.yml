@@ -5,25 +5,22 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+# Runs on main finish, so every merge commit gets a result; only superseded PR runs are cancelled.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
-      - run: pnpm install --frozen-lockfile
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       # Tests run against the real local Supabase stack (Docker); the vitest globalSetup reads its
       # credentials from `supabase status`.
-      - uses: supabase/setup-cli@v1
-        with:
-          version: 2.121.0
-      - name: Start local Supabase
-        working-directory: packages/db
-        run: supabase start -x realtime,imgproxy,studio,edge-runtime,logflare,vector,supavisor
+      - uses: ./.github/actions/setup
       # The migrations applied to a fresh stack; the committed types must match them.
       - name: Generated types are up to date
         run: |
@@ -35,10 +32,12 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
       - run: pnpm install --frozen-lockfile
       - name: Every PR carries a changeset
-        run: pnpm changeset status --since=origin/${{ github.base_ref }}
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: pnpm changeset status --since="origin/$BASE_REF"

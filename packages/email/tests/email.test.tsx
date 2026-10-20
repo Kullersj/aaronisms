@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { render } from '@react-email/components';
 import { describe, expect, it } from 'vitest';
 import { NewSubmissionEmail, newSubmissionSubject, sendEmail } from '../src';
-import { findMessages, SMTP_URL } from './mailpit';
+import { findMessages, SMTP_URL } from '@aaronisms/db/testing/mailpit';
 
 const props = NewSubmissionEmail.PreviewProps;
 
@@ -30,7 +30,8 @@ describe('NewSubmissionEmail', () => {
     expect(await render(<NewSubmissionEmail {...props} />)).toContain('submitted by Pat');
     const anonymous = await render(<NewSubmissionEmail {...props} submitterName={null} />);
     expect(anonymous).toContain('submitted by Anonymous');
-    expect(newSubmissionSubject(null)).toBe('New Aaronism submitted by Anonymous');
+    expect(newSubmissionSubject('October 18, 2026')).toBe('New submission for October 18, 2026');
+    expect(newSubmissionSubject('')).toBe('New submission');
   });
 
   it('includes the photo only when there is one', async () => {
@@ -49,6 +50,23 @@ describe('NewSubmissionEmail', () => {
       />,
     );
     expect(html).not.toContain('<script>alert(1)</script>');
+  });
+
+  it('strips control and invisible format characters from submitted text', async () => {
+    const html = await render(
+      <NewSubmissionEmail
+        {...props}
+        submitterName={'Pa\u202Et\u0007'}
+        lines={[{ kind: 'line', speaker: 'Spea\u200Bker', text: 'one\u0000 two\u2066' }]}
+      />,
+    );
+    // (React Email's own preview padding is full of invisible characters, so check the text itself.)
+    for (const raw of ['Pa\u202E', 't\u0007', 'Spea\u200B', 'one\u0000', 'two\u2066']) {
+      expect(html).not.toContain(raw);
+    }
+    expect(html).toContain('submitted by Pat');
+    expect(html).toContain('Speaker:');
+    expect(html).toContain('one two');
   });
 });
 

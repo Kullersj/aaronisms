@@ -11,7 +11,7 @@ mise install        # installs the pinned tools
 mise run setup      # pnpm install, start local Supabase, generate DB types
 ```
 
-Without mise, use Node >= 22 and pnpm 10.28 (`corepack enable`), then `pnpm install`. Copy `.env.example` to `.env.local` and fill in the values.
+Without mise, use Node >= 22 and pnpm 10.28 (`corepack enable`), then `pnpm install`. Copy `.env.example` to `apps/web/.env.local` (the only env file read; scripts take their variables from the shell) and fill in the values.
 
 ```sh
 pnpm dev            # run the site at http://localhost:3000 (needs local Supabase, see below)
@@ -21,7 +21,7 @@ pnpm e2e            # Playwright against the built app (builds web first)
 pnpm format         # prettier
 ```
 
-For `pnpm e2e` on a fresh machine, install a browser once with `pnpm --filter @aaronisms/e2e exec playwright install chromium`. Set `BASE_URL` to test an already-running deployment, or `PW_CHROMIUM_PATH` to use an existing Chromium binary.
+For `pnpm e2e` on a fresh machine, install a browser once with `pnpm --filter @aaronisms/e2e exec playwright install chromium`. Set `BASE_URL` to run the read-only public specs against an already-running deployment (the submission, moderation and admin journeys write to the database behind `SUPABASE_URL` and refuse to run unless it is a local stack, hostname `127.0.0.1`, `localhost` or `::1`; set `ALLOW_REMOTE_SUPABASE_TESTS=1` only if you really mean to run them against another project), or `PW_CHROMIUM_PATH` to use an existing Chromium binary.
 
 ### Running the site locally
 
@@ -55,7 +55,7 @@ EMAIL_TRANSPORT=smtp                                          # Mailpit at http:
 EMAIL_FROM="Aaronisms <noreply@example.com>"
 ```
 
-**Submitting.** `/submit` takes a date, an optional setup line, rows of speaker and line (or stage direction), an optional photo and an optional name. A Server Action validates it with the shared Zod schema, checks a honeypot field, Turnstile and a per-IP rate limit (5 per hour, kept in the database), then saves it as `pending` with the service role and emails the moderators after the response is sent. The Turnstile test secret is recognised and never sent to Cloudflare, so nothing here needs the internet.
+**Submitting.** `/submit` takes a date, an optional setup line, rows of speaker and line (or stage direction), an optional photo and an optional name. A Server Action validates it with the shared Zod schema, checks a honeypot field, Turnstile and a per-IP rate limit (5 per hour, kept in the database), then saves it as `pending` with the service role (a photo is first re-encoded with sharp, which strips EXIF and other metadata, applies the orientation and scales it to at most 2400 px, then stored in the private `aaronism-images-private` bucket under a random name) and emails the moderators after the response is sent. The Turnstile test secret is recognised and never sent to Cloudflare, so nothing here needs the internet.
 
 **Moderating by email.** Every address in `MODERATOR_EMAILS` gets its own email with Approve, Reject and Edit before approving buttons. The first address is the default moderator: the `Reply-To`, and the recipient of failure alerts. Every address can sign in to `/admin`. Each button opens `/moderate/<token>`, which only displays the submission; the decision is a POST from that page, because email scanners open links. Tokens are 32 random bytes, stored only as a SHA-256 hash, valid for 14 days, and stop working if the address leaves `MODERATOR_EMAILS`. The first decision wins (`decide_entry` locks the entry row); later links say "Already approved by ...". Every decision expires the `entries` cache tag, so the site updates immediately.
 
@@ -77,7 +77,7 @@ pnpm --filter @aaronisms/email dev     # http://localhost:3001
 - **`/speakers`** lists speakers who have at least one line in a published entry, with line counts. **`/speakers/<slug>`** shows every published entry that speaker is in. Speaker names on cards link there, and a speaker with nothing published is a 404. Both read through the anon client, so RLS keeps pending and rejected lines out of the counts.
 - **`/random`** is a route handler that redirects (307, `Cache-Control: no-store`) to a published entry chosen by `random_published_entry_slug()`, or to `/` when nothing is published. The header's Random link does not prefetch it.
 - **Year jump.** On phones the year list is a single scrolling row pinned to the top, and the sticky year headings sit just below it.
-- **Share images.** `/a/<slug>/opengraph-image` (via `next/og`) renders the date, speakers and lines, trimmed to about 260 characters and four lines, in the header's dark style; unpublished or unknown entries get a 404. `/opengraph-image` is the default card. Next adds a content hash to these URLs, so read them from the page's `og:image` tag. They still carry the `X-Robots-Tag: noindex` header from `next.config.ts`; `tests/seo.spec.ts` checks it.
+- **Share images.** `/a/<slug>/opengraph-image` (via `next/og`) renders the date, speakers and lines, trimmed to about 140 characters (speaker names included) and four lines, in the header's dark style; unpublished or unknown entries get a 404. `/opengraph-image` is the default card. Next adds a content hash to these URLs, so read them from the page's `og:image` tag. They still carry the `X-Robots-Tag: noindex` header from `next.config.ts`; `tests/seo.spec.ts` checks it.
 
 The query tests (`apps/web/tests/public-queries.test.ts`) insert their own made-up rows into the real local database and check what the anon role can and cannot see; there are no mocks. The Playwright specs for these routes are in `packages/e2e/tests/public/` (search, speakers, random, og), with page objects in `packages/e2e/pages/`.
 
@@ -85,7 +85,7 @@ The query tests (`apps/web/tests/public-queries.test.ts`) insert their own made-
 
 ### Checking Row Level Security
 
-`pnpm check:rls` proves as the anon role that the database keeps private data private: pending and rejected entries, their lines and their speakers are not readable; `submitted_by`, `submitter_ip`, `reviewed_by_email` and `decision_note` cannot be selected; the moderation token and rate-limit tables cannot be read; the image bucket cannot be listed; entries, lines and speakers cannot be inserted, updated or deleted; and every write RPC (`create_submission`, `apply_entry_edits`, `merge_speakers`, `decide_entry`, `decide_entry_as_admin`, `moderation_token_state`, `consume_rate_limit`) is refused, while `search_entries` and `random_published_entry_slug` work. It exits 1 and lists each failed check.
+`pnpm check:rls` proves as the anon role that the database keeps private data private: pending and rejected entries, their lines and their speakers are not readable; `submitted_by`, `submitter_ip`, `reviewed_by_email` and `decision_note` cannot be selected; the moderation token and rate-limit tables cannot be read; neither image bucket can be listed; entries, lines and speakers cannot be inserted, updated or deleted; and every write RPC (`create_submission`, `apply_entry_edits`, `merge_speakers`, `decide_entry`, `decide_entry_as_admin`, `moderation_token_state`, `consume_rate_limit`) is refused, while `search_entries` and `random_published_entry_slug` work. It exits 1 and lists each failed check.
 
 It is safe to run against the hosted project before launch: it only reads, every write it tries is one the database must refuse (an invalid value, or the nil UUID, which matches nothing), and it refuses to run with a key whose role is not `anon` (a `sb_secret_...` or service role key is rejected).
 
@@ -113,7 +113,7 @@ Two scheduled GitHub Actions workflows protect the free-tier hosted project. Eac
 GitHub disables scheduled workflows in a public repository after 60 days without repository activity, which would silently stop both. Watch for GitHub's "scheduled workflow disabled" email and re-enable them from the Actions tab; any push also resets the timer.
 
 - **`keepalive.yml`** (every 3 days) reads one row from `entries` through the REST API, so the project is never idle long enough to pause. Secrets: `SUPABASE_URL`, `SUPABASE_ANON_KEY` (the publishable or anon key only).
-- **`backup.yml`** (daily) runs `pg_dump` of the `public` schema and uploads `aaronisms-data-<date>.sql.gz.gpg` (all rows) and `aaronisms-schema-<date>.sql.gz.gpg` (reference copy) as the `database-backup` artifact, kept for 30 days. Secrets: `SUPABASE_DB_URL`, the Postgres connection string from Project Settings, Database (use the Session pooler string: GitHub runners have no IPv6 and the direct host is IPv6 only), and `BACKUP_PASSPHRASE`, a long random passphrase kept somewhere other than GitHub. This repository is public and anyone signed in to GitHub can download its artifacts, so the dumps are encrypted with that passphrase, and the job skips without it. Images in Storage are not in the dump (the rows keep their paths); the originals are what the importer was given.
+- **`backup.yml`** (daily) runs `pg_dump` of the `public` schema and uploads `aaronisms-data-<date>.sql.gz.gpg` (all rows except `rate_limit_hits` and `moderation_tokens`) and `aaronisms-schema-<date>.sql.gz.gpg` (reference copy) as the `database-backup` artifact, kept for 7 days. Secrets: `SUPABASE_DB_URL`, the Postgres connection string from Project Settings, Database (use the Session pooler string: GitHub runners have no IPv6 and the direct host is IPv6 only), and `BACKUP_PASSPHRASE`, a long random passphrase (at least 32 characters, or the job fails) kept somewhere other than GitHub. This repository is public and anyone signed in to GitHub can download its artifacts, so the dumps are encrypted with that passphrase, and the job fails without it. Images in Storage are not in the dump (the rows keep their paths); the originals are what the importer was given.
 
 To restore (needs `psql` 17), the target must be a fresh Supabase project with the migrations applied (`supabase db push` from `packages/db`, or the GitHub integration) and no data: the import must not have been run there, or the load fails on duplicate keys. The search triggers rebuild each entry's search column during the load. Then load the data:
 
@@ -167,9 +167,9 @@ pnpm db:types                       # regenerate src/database.types.ts after a s
 pnpm test                           # all tests, including RLS and importer tests on the real database
 ```
 
-`pnpm test` needs Docker running: the tests use the local Supabase stack (real Postgres), starting it if it is not already up and leaving it running afterwards. Set `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` to point at a different stack instead. `mise run setup` remains the one-time bootstrap.
+`pnpm test` needs Docker running: the tests use the local Supabase stack (real Postgres), starting it if it is not already up and leaving it running afterwards. Set `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` to point at a different stack instead; the tests refuse a non-local `SUPABASE_URL` (only `127.0.0.1`, `localhost` or `::1`) unless `ALLOW_REMOTE_SUPABASE_TESTS=1` is set, because they insert and delete data. `mise run setup` remains the one-time bootstrap.
 
-Security model: anonymous visitors can only read published entries, their lines, speakers and published memes. Everything else (writes, `moderation_tokens`, pending or rejected entries) goes through the service role in server code. The private entry columns (`submitted_by`, `submitter_ip`, `reviewed_by_email`, `decision_note`) are not granted to the API roles at all, so select explicit columns instead of `select *` from the anon client. The bucket is public, so image URLs serve without a `storage.objects` policy; there is deliberately none, so anon cannot list objects.
+Security model: anonymous visitors can only read published entries, their lines, speakers and published memes. Everything else (writes, `moderation_tokens`, pending or rejected entries) goes through the service role in server code. The private entry columns (`submitted_by`, `submitter_ip`, `reviewed_by_email`, `decision_note`) are not granted to the API roles at all, so select explicit columns instead of `select *` from the anon client. Photos of published entries are in the public `aaronism-images` bucket, so their URLs serve without a `storage.objects` policy; there is deliberately none, so anon cannot list objects. Photos of pending, rejected and deleted entries are in the private `aaronism-images-private` bucket (no public flag, no policy; the service role signs short-lived URLs for moderators, 14 days in the moderation email). An `image_path` starting with `private/` is in the private bucket, any other is public. Approving copies the photo to the public bucket under a new random name and deletes the private one; deleting an entry moves its photo back to the private bucket, and removing or replacing a photo in the admin deletes the old object.
 
 ## Importing the old Google Sites content
 

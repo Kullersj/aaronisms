@@ -31,8 +31,14 @@ export type NewSubmissionEmailProps = {
   editUrl: string;
 };
 
-export function newSubmissionSubject(submitterName: string | null): string {
-  return `New Aaronism submitted by ${submitterName ?? 'Anonymous'}`;
+/** The subject carries no submitter text: it is neutral so nothing a visitor typed reaches the inbox list. */
+export function newSubmissionSubject(dateLabel: string): string {
+  return dateLabel ? `New submission for ${dateLabel}` : 'New submission';
+}
+
+/** Drops control and invisible format characters (such as bidi overrides) from submitted text. */
+export function cleanText(value: string): string {
+  return value.replace(/[\t\n\r]+/g, ' ').replace(/[\p{Cc}\p{Cf}]/gu, '');
 }
 
 function bracketed(text: string): string {
@@ -40,7 +46,12 @@ function bracketed(text: string): string {
   return trimmed.startsWith('[') && trimmed.endsWith(']') ? trimmed : `[${trimmed}]`;
 }
 
-function QuoteLine({ line }: { line: EmailLine }) {
+function QuoteLine({ line: submitted }: { line: EmailLine }) {
+  const line = {
+    ...submitted,
+    speaker: submitted.speaker === null ? null : cleanText(submitted.speaker),
+    text: cleanText(submitted.text),
+  };
   if (line.kind === 'stage') {
     return (
       <Text style={{ ...text, color: '#737373', fontStyle: 'italic' }}>{bracketed(line.text)}</Text>
@@ -65,17 +76,18 @@ export function NewSubmissionEmail({
   rejectUrl,
   editUrl,
 }: NewSubmissionEmailProps) {
-  const subject = newSubmissionSubject(submitterName);
+  const subject = newSubmissionSubject(cleanText(dateLabel));
+  const byline = `New Aaronism submitted by ${cleanText(submitterName ?? '') || 'Anonymous'}`;
   return (
     <Html lang="en">
       <Head />
       <Preview>{subject}</Preview>
       <Body style={body}>
         <Container style={container}>
-          <Text style={eyebrow}>{subject}</Text>
+          <Text style={eyebrow}>{byline}</Text>
           <Section style={card}>
             <Heading as="h1" style={heading}>
-              {dateLabel}
+              {cleanText(dateLabel)}
             </Heading>
             {lines.map((line, index) => (
               <QuoteLine key={index} line={line} />

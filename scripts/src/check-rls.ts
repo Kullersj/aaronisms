@@ -1,6 +1,7 @@
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { createClient } from '@supabase/supabase-js';
+import { keyRole } from './supabase';
 
 const USAGE = `Usage: tsx src/check-rls.ts [--url <supabase url>] [--anon-key <key>]
 
@@ -14,6 +15,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY) unless given as flags. The key is the publishable
 (sb_publishable_...) or the legacy anon JWT. Exits 1 and lists every failed check.`;
 
 const BUCKET = 'aaronism-images';
+const PRIVATE_BUCKET = 'aaronism-images-private';
 const NIL = '00000000-0000-0000-0000-000000000000';
 /** Postgres `insufficient_privilege`: what a missing grant or revoked execute looks like. */
 const DENIED = '42501';
@@ -29,21 +31,7 @@ export type CheckOptions = {
   allowNonAnonKey?: boolean;
 };
 
-/**
- * The role of a Supabase API key: `anon` for a publishable key (`sb_publishable_...`, not a JWT),
- * `service_role` for a secret key (`sb_secret_...`), else the `role` claim of a legacy JWT key, or
- * null if it is none of these.
- */
-export function keyRole(key: string): string | null {
-  if (key.startsWith('sb_publishable_')) return 'anon';
-  if (key.startsWith('sb_secret_')) return 'service_role';
-  try {
-    const payload = JSON.parse(Buffer.from(key.split('.')[1] ?? '', 'base64url').toString());
-    return typeof payload.role === 'string' ? payload.role : null;
-  } catch {
-    return null;
-  }
-}
+export { keyRole };
 
 export async function checkRls({ url, anonKey, allowNonAnonKey }: CheckOptions) {
   const role = keyRole(anonKey);
@@ -102,9 +90,22 @@ export async function checkRls({ url, anonKey, allowNonAnonKey }: CheckOptions) 
   // Reads that must work, and must show nothing unpublished. Lines and speakers are read before
   // entries: an entry published in between is then already visible when entries are read, so a
   // line seen here is never reported as belonging to an unpublished entry by mistake.
-  const lines = await readAll('entry_lines', 'id, entry_id, speaker_id');
-  const speakers = await readAll('speakers', 'id');
-  const entries = await readAll('entries', 'id, slug, status');
+  // Other writers (another test suite, or the site in production) can still unpublish or delete an
+  // entry between the reads, so when lines or speakers look orphaned the reads are taken once more:
+  // a real leak shows up both times, a race almost never does.
+  const readVisible = async () => {
+    const lines = await readAll('entry_lines', 'id, entry_id, speaker_id');
+    const speakers = await readAll('speakers', 'id');
+    const entries = await readAll('entries', 'id, slug, status');
+    const ids = new Set(entries.filter((e) => e.status === 'published').map((e) => e.id));
+    const used = new Set(lines.filter((l) => ids.has(l.entry_id)).map((l) => l.speaker_id));
+    const consistent =
+      lines.every((l) => ids.has(l.entry_id)) && speakers.every((s) => used.has(s.id));
+    return { lines, speakers, entries, consistent };
+  };
+  let visible = await readVisible();
+  if (!visible.consistent) visible = await readVisible();
+  const { lines, speakers, entries } = visible;
   record(
     'entries: only published rows are readable',
     entries.every((e) => e.status === 'published')
@@ -173,6 +174,18 @@ export async function checkRls({ url, anonKey, allowNonAnonKey }: CheckOptions) 
       ? `the request failed: ${listed.error.message}`
       : listed.data.length
         ? `listed ${listed.data.length} object(s)`
+        : null,
+  );
+
+  // The private bucket (photos of pending, rejected and deleted entries) has no policy and no
+  // public flag, so listing returns nothing (packages/db/tests/rls.test.ts also checks reads).
+  const privateListed = await db.storage.from(PRIVATE_BUCKET).list('', { limit: 5 });
+  record(
+    'storage: the private bucket cannot be listed',
+    privateListed.error
+      ? `the request failed: ${privateListed.error.message}`
+      : privateListed.data.length
+        ? `listed ${privateListed.data.length} object(s)`
         : null,
   );
 

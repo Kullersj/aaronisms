@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Link2 } from 'lucide-react';
 import type { Entry } from '@aaronisms/db/schemas';
 import { Card, CardContent, CardHeader } from '@aaronisms/ui/card';
-import { getImageUrl } from '@/lib/supabase/storage';
+import { getImageUrl, isPrivateImage } from '@/lib/supabase/storage';
 import { formatEntryDate } from '../utils';
 import { DialogueLine } from './DialogueLine';
 
@@ -15,6 +15,11 @@ export type EntryCardProps = {
   linked?: boolean;
   /** Words to mark in the lines, for search results. */
   highlight?: string[];
+  /**
+   * A ready URL for the photo, for a private one (a signed URL). It is shown unoptimised: the
+   * optimizer would cache a URL that expires and only fetches public Storage paths.
+   */
+  imageUrl?: string | null;
 };
 
 export function EntryCard({
@@ -22,10 +27,14 @@ export function EntryCard({
   headingLevel = 'h3',
   linked = true,
   highlight,
+  imageUrl,
 }: EntryCardProps) {
   const Heading = headingLevel;
   const href = `/a/${entry.slug}`;
   const date = entry.saidOn ? formatEntryDate(entry.saidOn) : null;
+  const src =
+    imageUrl ??
+    (entry.imagePath && !isPrivateImage(entry.imagePath) ? getImageUrl(entry.imagePath) : null);
   const headingClass = 'text-3xl font-light tracking-tight sm:text-4xl';
 
   return (
@@ -61,9 +70,10 @@ export function EntryCard({
         {entry.lines.map((line) => (
           <DialogueLine key={line.id} line={line} highlight={highlight} />
         ))}
-        {entry.imagePath ? (
+        {src ? (
           <Image
-            src={getImageUrl(entry.imagePath)}
+            src={src}
+            unoptimized={imageUrl != null}
             alt={entry.imageAlt ?? ''}
             width={1200}
             height={900}

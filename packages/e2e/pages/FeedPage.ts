@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 export class FeedPage {
   readonly allAaronisms: Locator;
@@ -15,6 +15,13 @@ export class FeedPage {
 
   async goto() {
     await this.page.goto('/');
+  }
+
+  /** Opens the feed and reports whether a visitor can see `text` on it. */
+  async shows(text: string): Promise<boolean> {
+    await this.goto();
+    await expect(this.allAaronisms).toBeAttached();
+    return (await this.page.getByText(text).count()) > 0;
   }
 
   entryOn(date: string): Locator {

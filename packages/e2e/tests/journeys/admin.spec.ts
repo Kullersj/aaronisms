@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { BrowserContext, Page } from '@playwright/test';
 import type { Database } from '@aaronisms/db/database.types';
-import { serviceClient } from '../../fixtures/db';
-import { ADMIN_STATE, moderators, requireEnv } from '../../fixtures/env';
+import { findEntry, serviceClient } from '../../fixtures/db';
+import { ADMIN_STATE, moderators, requireEnv, requireLocalSupabase } from '../../fixtures/env';
 import { signInAsAdmin } from '../../fixtures/admin';
 import { countSignInEmailsTo, moderationLinks, waitForEmail } from '../../fixtures/mailpit';
 import { test, expect } from '../../fixtures/test';
@@ -13,9 +13,14 @@ import { SubmitPage } from '../../pages/SubmitPage';
 
 const [first, second] = moderators();
 
+const DOT_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWNgYGD4DwABBAEAfbLI3wAAAABJRU5ErkJggg==',
+  'base64',
+);
+
 /** Signs in with a password through the API and hands the session to the browser as its cookie. */
 async function addPasswordSession(context: BrowserContext, email: string, password: string) {
-  const url = requireEnv('SUPABASE_URL');
+  const url = requireLocalSupabase();
   const anon = createClient<Database>(url, requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'), {
     auth: { persistSession: false },
   });
@@ -36,13 +41,6 @@ async function submitPending(page: Page, marker: string, text: string) {
   await expect(submit.thanks).toBeVisible();
 }
 
-async function feedShows(page: Page, text: string) {
-  const feed = new FeedPage(page);
-  await feed.goto();
-  await expect(feed.allAaronisms).toBeAttached();
-  return (await page.getByText(text).count()) > 0;
-}
-
 test.describe('admin, signed in as the default moderator', () => {
   test.use({ storageState: ADMIN_STATE });
 
@@ -57,7 +55,7 @@ test.describe('admin, signed in as the default moderator', () => {
     await item.getByRole('button', { name: 'Approve' }).click();
     await expect(admin.queueItem(marker)).toHaveCount(0);
 
-    expect(await feedShows(page, quote)).toBe(true);
+    expect(await new FeedPage(page).shows(quote)).toBe(true);
 
     // The other moderator's email link now shows who approved it.
     const links = moderationLinks(await waitForEmail(second, marker));
@@ -65,6 +63,33 @@ test.describe('admin, signed in as the default moderator', () => {
     await moderate.goto(links.approve);
     await expect(moderate.notice('Already approved')).toBeVisible();
     await expect(page.getByText(`Approved by ${first}`)).toBeVisible();
+  });
+
+  test('moves a submitted photo to the public bucket when approved', async ({ page, marker }) => {
+    const submit = new SubmitPage(page);
+    await submit.goto();
+    await submit.chooseSpeaker(1, `${marker} Speaker`, { isNew: true });
+    await submit.fillLine(1, `Photo ${marker}`);
+    await submit.name.fill(marker);
+    await submit.photo.setInputFiles({ name: 'dot.png', mimeType: 'image/png', buffer: DOT_PNG });
+    await submit.submit.click();
+    await expect(submit.thanks).toBeVisible();
+    const pending = (await findEntry(marker))?.image_path;
+    expect(pending).toMatch(/^private\//);
+
+    const admin = new AdminPage(page);
+    await admin.goto();
+    await admin.queueItem(marker).getByRole('button', { name: 'Approve' }).click();
+    await expect(admin.queueItem(marker)).toHaveCount(0);
+
+    const published = (await findEntry(marker))?.image_path;
+    expect(published).toMatch(/^entries\/[0-9a-f-]{36}\.png$/);
+    const client = serviceClient();
+    const url = client.storage.from('aaronism-images').getPublicUrl(published ?? '').data.publicUrl;
+    expect((await fetch(url)).status).toBe(200);
+    // The private original is gone.
+    const left = await client.storage.from('aaronism-images-private').list('private');
+    expect(left.data?.some((object) => `private/${object.name}` === pending)).toBe(false);
   });
 
   test('rejects a pending submission from the queue with a reason', async ({ page, marker }) => {
@@ -77,7 +102,7 @@ test.describe('admin, signed in as the default moderator', () => {
     await item.getByLabel('Reason (optional)').fill('Too inside');
     await item.getByRole('button', { name: 'Reject', exact: true }).click();
     await expect(admin.queueItem(marker)).toHaveCount(0);
-    expect(await feedShows(page, quote)).toBe(false);
+    expect(await new FeedPage(page).shows(quote)).toBe(false);
 
     const links = moderationLinks(await waitForEmail(second, marker));
     const moderate = new ModeratePage(page);
@@ -96,8 +121,8 @@ test.describe('admin, signed in as the default moderator', () => {
     await admin.saveAndApprove.click();
     await expect(page.getByText('Saved and approved.')).toBeVisible();
 
-    expect(await feedShows(page, `After ${marker}`)).toBe(true);
-    expect(await feedShows(page, `Before ${marker}`)).toBe(false);
+    expect(await new FeedPage(page).shows(`After ${marker}`)).toBe(true);
+    expect(await new FeedPage(page).shows(`Before ${marker}`)).toBe(false);
   });
 
   test('edits a published entry and takes it down by changing its status', async ({
@@ -113,7 +138,7 @@ test.describe('admin, signed in as the default moderator', () => {
     await admin.queueItem(marker).getByRole('link', { name: 'Edit before approving' }).click();
     await admin.saveAndApprove.click();
     await expect(page.getByText('Saved and approved.')).toBeVisible();
-    await expect.poll(() => feedShows(visitor, `Original ${marker}`)).toBe(true);
+    await expect.poll(() => new FeedPage(visitor).shows(`Original ${marker}`)).toBe(true);
 
     // The editor now offers a status to change, showing the one the entry has.
     await expect(admin.status).toHaveValue('published');
@@ -122,13 +147,13 @@ test.describe('admin, signed in as the default moderator', () => {
     await admin.fillLine(1, `Edited ${marker}`);
     await admin.save.click();
     await expect(page.getByText('Saved.')).toBeVisible();
-    await expect.poll(() => feedShows(visitor, `Edited ${marker}`)).toBe(true);
-    await expect.poll(() => feedShows(visitor, `Original ${marker}`)).toBe(false);
+    await expect.poll(() => new FeedPage(visitor).shows(`Edited ${marker}`)).toBe(true);
+    await expect.poll(() => new FeedPage(visitor).shows(`Original ${marker}`)).toBe(false);
 
     await admin.status.selectOption('rejected');
     await admin.save.click();
     // The first "Saved." toast may still be showing, so the visitor's feed is the proof here.
-    await expect.poll(() => feedShows(visitor, `Edited ${marker}`)).toBe(false);
+    await expect.poll(() => new FeedPage(visitor).shows(`Edited ${marker}`)).toBe(false);
   });
 
   test('finds a published entry, deletes it softly and restores it', async ({ page, marker }) => {
@@ -138,7 +163,7 @@ test.describe('admin, signed in as the default moderator', () => {
     await admin.goto();
     await admin.queueItem(marker).getByRole('button', { name: 'Approve' }).click();
     await expect(admin.queueItem(marker)).toHaveCount(0);
-    expect(await feedShows(page, quote)).toBe(true);
+    expect(await new FeedPage(page).shows(quote)).toBe(true);
 
     const openFromList = async () => {
       await admin.goto();
@@ -159,7 +184,7 @@ test.describe('admin, signed in as the default moderator', () => {
     await expect(page.getByText('Entry deleted.')).toBeVisible();
 
     // Off the site, but still listed for the admin as deleted.
-    expect(await feedShows(page, quote)).toBe(false);
+    expect(await new FeedPage(page).shows(quote)).toBe(false);
     expect((await page.goto(`/a/${slug}`))?.status()).toBe(404);
     item = await openFromList();
     await expect(item.getByText('Deleted')).toBeVisible();
@@ -170,7 +195,7 @@ test.describe('admin, signed in as the default moderator', () => {
     await admin.status.selectOption('published');
     await admin.save.click();
     await expect(page.getByText('Saved.')).toBeVisible();
-    await expect.poll(() => feedShows(page, quote)).toBe(true);
+    await expect.poll(() => new FeedPage(page).shows(quote)).toBe(true);
   });
 
   test('renames and merges speakers', async ({ page, marker }) => {
@@ -187,7 +212,7 @@ test.describe('admin, signed in as the default moderator', () => {
     const row = admin.speakerRow(`${marker} Speaker`);
     await row.getByLabel(`New name for ${marker} Speaker`).fill(`${marker} Renamed`);
     await row.getByRole('button', { name: 'Rename' }).click();
-    await expect(page.getByText(`Renamed to ${marker} Renamed.`)).toBeVisible();
+    await expect(page.getByText('Renamed.', { exact: true })).toBeVisible();
 
     const renamed = admin.speakerRow(`${marker} Renamed`);
     await expect(renamed.getByText('1 line')).toBeVisible();

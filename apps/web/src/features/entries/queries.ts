@@ -1,11 +1,16 @@
 import 'server-only';
-import { unstable_cache } from 'next/cache';
+import { revalidateTag, unstable_cache } from 'next/cache';
 import type { Entry } from '@aaronisms/db/schemas';
 import { createAnonClient } from '@/lib/supabase/server';
 import { toEntry, type EntryRow } from './mappers';
 import { compareEntries } from './utils';
 
 export const ENTRIES_TAG = 'entries';
+
+/** Drops the cached public data at once, rather than after the hour it would otherwise live. */
+export function expireEntries(): void {
+  revalidateTag(ENTRIES_TAG, { expire: 0 });
+}
 
 // The anon role cannot `select *` from entries (private columns), so list columns explicitly.
 export const ENTRY_COLUMNS =

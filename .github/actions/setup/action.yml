@@ -1,0 +1,46 @@
+name: Set up the toolchain and local Supabase
+description: >-
+  Installs the toolchain (mise) and dependencies, starts the local Supabase stack and, optionally,
+  exports the environment the site and the e2e tests need. Run actions/checkout first.
+
+inputs:
+  write-env:
+    description: Write the site and test environment for the local stack to GITHUB_ENV.
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
+    - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
+      with:
+        version: 2.121.0 # keep in step with mise.toml
+    - run: pnpm install --frozen-lockfile
+      shell: bash
+    # Database, REST API, Auth and Storage, plus Mailpit, which receives the moderation emails and
+    # the admin magic link. Migrations and seed.sql apply, so the pages have something to render.
+    - name: Start local Supabase
+      shell: bash
+      working-directory: packages/db
+      run: supabase start -x realtime,imgproxy,studio,edge-runtime,logflare,vector,supavisor
+    - name: Configure the site and tests for the local stack
+      if: inputs.write-env == 'true'
+      shell: bash
+      working-directory: packages/db
+      run: |
+        eval "$(supabase status -o env | grep -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY)=')"
+        {
+          echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+          echo "SUPABASE_URL=$API_URL"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          echo "SITE_URL=http://localhost:3000"
+          # Fake addresses: the first is the default moderator and admin.
+          echo "MODERATOR_EMAILS=first.mod@example.com, second.mod@example.com"
+          # Cloudflare's documented always-pass Turnstile test keys.
+          echo "TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA"
+          echo "NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA"
+          # Real SMTP to the local stack's Mailpit; no Resend account needed.
+          echo "EMAIL_TRANSPORT=smtp"
+          echo "EMAIL_FROM=Aaronisms <noreply@example.com>"
+        } >> "$GITHUB_ENV"
