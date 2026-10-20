@@ -4,8 +4,10 @@ import { getServerEnv } from '@/lib/env';
 import { createSessionClient } from '@/lib/supabase/session';
 
 /**
- * Finishes the magic-link sign-in: trades the one-time code for a session cookie. Only a moderator
- * may stay signed in; anyone else is signed straight back out.
+ * Finishes a PKCE magic-link sign-in: trades the one-time code for a session cookie. The code only
+ * works in the browser that asked for the link. Links from the sign-in email template go to
+ * /auth/confirm instead; this route serves Supabase's default template. Only a moderator may stay
+ * signed in; anyone else is signed straight back out.
  */
 export async function GET(request: NextRequest) {
   const login = (error: string) =>

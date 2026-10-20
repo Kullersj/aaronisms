@@ -3,7 +3,7 @@ import type { BrowserContext, Page } from '@playwright/test';
 import type { Database } from '@aaronisms/db/database.types';
 import { serviceClient } from '../../fixtures/db';
 import { ADMIN_STATE, moderators, requireEnv } from '../../fixtures/env';
-import { signInAsAdmin } from '../../fixtures/admin';
+import { followSignInLink, requestSignInLink, signInAsAdmin } from '../../fixtures/admin';
 import { countSignInEmailsTo, moderationLinks, waitForEmail } from '../../fixtures/mailpit';
 import { test, expect } from '../../fixtures/test';
 import { FeedPage } from '../../pages/FeedPage';
@@ -12,6 +12,12 @@ import { ModeratePage } from '../../pages/ModeratePage';
 import { SubmitPage } from '../../pages/SubmitPage';
 
 const [first, second] = moderators();
+
+/** A fresh client address, so a test's sign-ins never share a rate-limit bucket with another's. */
+function randomIp() {
+  const octet = () => Math.floor(Math.random() * 254) + 1;
+  return `10.${octet()}.${octet()}.${octet()}`;
+}
 
 /** Signs in with a password through the API and hands the session to the browser as its cookie. */
 async function addPasswordSession(context: BrowserContext, email: string, password: string) {
@@ -240,6 +246,39 @@ test.describe('admin, everyone else', () => {
       await expect(page).toHaveURL(new RegExp(`${path}$`));
     }
     await context.close();
+  });
+
+  test('two moderators who ask for links at the same time both get in', async ({ browser }) => {
+    const contexts = await Promise.all(
+      [first, second].map(() =>
+        browser.newContext({ extraHTTPHeaders: { 'x-vercel-forwarded-for': randomIp() } }),
+      ),
+    );
+    try {
+      const pages = await Promise.all(contexts.map((context) => context.newPage()));
+      const links = await Promise.all(
+        [first, second].map((email, i) => requestSignInLink(pages[i]!, email)),
+      );
+      await Promise.all(links.map((link, i) => followSignInLink(pages[i]!, link)));
+    } finally {
+      await Promise.all(contexts.map((context) => context.close()));
+    }
+  });
+
+  test('a sign-in link works in a different browser from the one that asked for it', async ({
+    browser,
+    clientIpHeaders,
+  }) => {
+    // A moderator asks on a laptop and opens the email on a phone, or in a mail app's own browser.
+    const asking = await browser.newContext({ extraHTTPHeaders: clientIpHeaders });
+    const opening = await browser.newContext({ extraHTTPHeaders: clientIpHeaders });
+    try {
+      const link = await requestSignInLink(await asking.newPage(), second);
+      await followSignInLink(await opening.newPage(), link);
+    } finally {
+      await asking.close();
+      await opening.close();
+    }
   });
 
   test('an address that is not a moderator gets no sign-in link', async ({
