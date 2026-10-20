@@ -2,7 +2,9 @@ name: Database backup
 
 # A daily logical dump (schema and data) of the hosted database, kept as a workflow artifact.
 # The repository is public and anyone signed in to GitHub can download its artifacts, so the dump is
-# encrypted with BACKUP_PASSPHRASE before upload, and the job refuses to run without it.
+# encrypted with BACKUP_PASSPHRASE before upload, and the job fails without it (or with a short one).
+# The tables that only hold abuse-control data (rate_limit_hits, moderation_tokens) are left out of
+# the dump: the restore does not need them and they must not sit in a downloadable artifact.
 on:
   schedule:
     - cron: '23 5 * * *'
@@ -14,22 +16,24 @@ permissions:
 jobs:
   backup:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Check for the database URL and passphrase
-        id: config
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
         run: |
+          # Fail, scheduled or manual, so a missing or weak secret means no backups and says so.
           if [ -z "$SUPABASE_DB_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
-            echo "::warning::SUPABASE_DB_URL or BACKUP_PASSPHRASE is not set; skipping backup."
-            # A manual run fails so a missing secret is obvious; the schedule just warns.
-            if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then exit 1; fi
-          else
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "::error::SUPABASE_DB_URL or BACKUP_PASSPHRASE is not set."
+            exit 1
+          fi
+          # The artifact is public, so the passphrase is all that protects it: require a long random one.
+          if [ "${#BACKUP_PASSPHRASE}" -lt 32 ]; then
+            echo "::error::BACKUP_PASSPHRASE must be at least 32 characters."
+            exit 1
           fi
       - name: Install the PostgreSQL 17 client
-        if: steps.config.outputs.enabled
         run: |
           sudo install -d /usr/share/postgresql-common/pgdg
           sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
@@ -40,10 +44,13 @@ jobs:
       # by Supabase itself, and the images in Storage are not in the database (the rows keep their
       # paths). The data file loads into a project whose migrations have been applied; the schema
       # file is a reference copy for the same purpose.
+      # The data dump skips the rows of rate_limit_hits (buckets can hold client IPs) and
+      # moderation_tokens (token hashes); the schema dump still has their definitions. entries still
+      # carries submitter_ip, submitted_by and reviewed_by_email: pg_dump cannot drop a column, so
+      # those stay in the (encrypted) dump.
       # Nothing unencrypted is written to disk: each dump is compressed and encrypted (AES-256,
       # passphrase from the environment, never on the command line) in one pipe.
       - name: Dump and encrypt
-        if: steps.config.outputs.enabled
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
@@ -55,14 +62,14 @@ jobs:
               --passphrase-fd 3 --output "$1" 3<<<"$BACKUP_PASSPHRASE"
           }
           pg_dump "$SUPABASE_DB_URL" --schema=public --no-owner --data-only \
+            --exclude-table-data=public.rate_limit_hits --exclude-table-data=public.moderation_tokens \
             | gzip | encrypt "aaronisms-data-$day.sql.gz.gpg"
           pg_dump "$SUPABASE_DB_URL" --schema=public --no-owner --no-privileges --schema-only \
             | sed '/^CREATE SCHEMA public;$/d' | gzip | encrypt "aaronisms-schema-$day.sql.gz.gpg"
           ls -lh aaronisms-*.sql.gz.gpg
-      - uses: actions/upload-artifact@v4
-        if: steps.config.outputs.enabled
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: database-backup
           path: aaronisms-*.sql.gz.gpg
-          retention-days: 30
+          retention-days: 7
           if-no-files-found: error

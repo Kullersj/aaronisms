@@ -8,45 +8,24 @@ on:
 permissions:
   contents: read
 
+# Runs on main finish, so every merge commit gets a result; only superseded PR runs are cancelled.
 concurrency:
   group: lighthouse-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   lighthouse:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
-      - uses: supabase/setup-cli@v1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/setup
         with:
-          version: 2.121.0 # keep in step with mise.toml
-      - run: pnpm install --frozen-lockfile
-      # The seed gives the pages something to render.
-      - run: supabase start -x realtime,imgproxy,studio,edge-runtime,logflare,vector,supavisor
-        working-directory: packages/db
-      - name: Configure the site for the local stack
-        working-directory: packages/db
-        run: |
-          eval "$(supabase status -o env | grep -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY)=')"
-          {
-            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
-            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
-            echo "SUPABASE_URL=$API_URL"
-            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
-            echo "SITE_URL=http://localhost:3000"
-            echo "MODERATOR_EMAILS=first.mod@example.com, second.mod@example.com"
-            # Cloudflare's documented always-pass Turnstile test keys.
-            echo "TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA"
-            echo "NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA"
-            echo "EMAIL_TRANSPORT=smtp"
-            echo "EMAIL_FROM=Aaronisms <noreply@example.com>"
-          } >> "$GITHUB_ENV"
+          write-env: 'true'
       - run: pnpm build
       # lighthouserc.cjs starts the built site, audits five pages three times each and fails
       # below 0.95 for performance, accessibility or best practices. The runner's Chrome is used.
       - run: pnpm lighthouse
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: lighthouse-reports
