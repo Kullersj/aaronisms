@@ -1,5 +1,5 @@
 import 'server-only';
-import type { Entry } from '@aaronisms/db/schemas';
+import type { Entry, EntryStatus } from '@aaronisms/db/schemas';
 import { toEntry, type EntryRow } from '@/features/entries/mappers';
 import { compareEntries } from '@/features/entries/utils';
 import { getServerEnv } from '@/lib/env';
@@ -18,7 +18,7 @@ export type TokenView =
   | { state: 'open'; entry: ReviewEntry }
   | {
       state: 'decided';
-      status: 'pending' | 'published' | 'rejected';
+      status: EntryStatus;
       reviewedBy: string | null;
       note: string | null;
     }

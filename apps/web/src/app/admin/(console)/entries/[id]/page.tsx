@@ -26,12 +26,14 @@ export default async function AdminEntryPage({ params }: PageProps) {
         imageAlt={entry.imageAlt}
         speakers={await getSpeakerNames()}
       />
-      <section aria-labelledby="delete-heading" className="border-border border-t pt-6">
-        <h2 id="delete-heading" className="mb-3 text-lg font-medium">
-          Delete
-        </h2>
-        <DeleteEntryButton entryId={entry.id} />
-      </section>
+      {entry.status === 'deleted' ? null : (
+        <section aria-labelledby="delete-heading" className="border-border border-t pt-6">
+          <h2 id="delete-heading" className="mb-3 text-lg font-medium">
+            Delete
+          </h2>
+          <DeleteEntryButton entryId={entry.id} />
+        </section>
+      )}
     </div>
   );
 }

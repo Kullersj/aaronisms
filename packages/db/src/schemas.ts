@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const entryStatusSchema = z.enum(['pending', 'published', 'rejected']);
+export const entryStatusSchema = z.enum(['pending', 'published', 'rejected', 'deleted']);
 export const entryEraSchema = z.enum(['modern', 'college']);
 export const lineKindSchema = z.enum(['line', 'stage', 'context']);
 

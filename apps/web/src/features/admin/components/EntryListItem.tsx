@@ -7,6 +7,7 @@ const STATUS_LABELS: Record<EntryStatus, string> = {
   pending: 'Pending',
   published: 'Published',
   rejected: 'Rejected',
+  deleted: 'Deleted',
 };
 
 /** One entry in the admin's list: its date, status and first line, linking to its edit page. */

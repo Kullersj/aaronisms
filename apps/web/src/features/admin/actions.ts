@@ -178,34 +178,28 @@ export async function saveEntry(entryId: string, formData: FormData): Promise<Sa
     await undoImage();
     throw error;
   }
-  // Only now that the entry is saved is the old photo safe to delete.
-  if (current.imagePath && current.imagePath !== imagePath) {
-    await client.storage.from(IMAGE_BUCKET).remove([current.imagePath]);
-  }
+  // A replaced or removed photo stays in storage: deletion on this site is always soft.
 
   revalidateTag(ENTRIES_TAG, { expire: 0 });
   return { ok: true };
 }
 
 /**
- * Deletes an entry for good, with its lines and photo, and takes it off the site. There is no
- * undo; to hide an entry but keep it, set its status to rejected instead.
+ * Deletes an entry softly: it comes off the site but keeps its lines and photo, so it can be
+ * restored by setting another status on its edit page.
  */
 export async function deleteEntry(formData: FormData): Promise<void> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const entryId = field(formData, 'entryId');
   if (!z.uuid().safeParse(entryId).success) redirect('/admin/entries');
-  const client = createAdminClient();
-  const { data: imagePath, error } = await client.rpc('delete_entry', { p_entry_id: entryId });
+  const { error } = await createAdminClient().rpc('delete_entry', {
+    p_entry_id: entryId,
+    p_admin_email: admin.email,
+  });
   if (error?.code === 'P0002') {
     redirect(`/admin/entries?message=${encodeURIComponent('That entry was already deleted.')}`);
   }
   if (error) throw new Error(`Could not delete the entry: ${error.message}`);
-  if (imagePath) {
-    const removed = await client.storage.from(IMAGE_BUCKET).remove([imagePath]);
-    // The entry is already gone, so a photo left behind is only wasted space; do not fail for it.
-    if (removed.error) console.error("Could not remove the deleted entry's photo", removed.error);
-  }
   revalidateTag(ENTRIES_TAG, { expire: 0 });
   redirect(`/admin/entries?message=${encodeURIComponent('Entry deleted.')}`);
 }
