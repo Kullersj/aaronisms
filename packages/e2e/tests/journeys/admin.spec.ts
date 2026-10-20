@@ -134,29 +134,33 @@ test.describe('admin, signed in as the default moderator', () => {
   test('finds a published entry and deletes it', async ({ page, marker }) => {
     const quote = `Delete me ${marker}`;
     await submitPending(page, marker, quote);
-    const slug = (await findEntry(marker))?.slug ?? '';
-    await page.goto('/admin');
-    await queueItem(page, marker).getByRole('button', { name: 'Approve' }).click();
-    await expect(queueItem(page, marker)).toHaveCount(0);
+    const admin = new AdminPage(page);
+    await admin.goto();
+    await admin.queueItem(marker).getByRole('button', { name: 'Approve' }).click();
+    await expect(admin.queueItem(marker)).toHaveCount(0);
+    expect(await feedShows(page, quote)).toBe(true);
 
-    await page
-      .getByRole('navigation', { name: 'Admin' })
-      .getByRole('link', { name: 'Entries' })
-      .click();
+    await admin.goto();
+    await admin.nav.getByRole('link', { name: 'Entries' }).click();
     await page.getByLabel('Filter entries').fill(quote);
     await page.getByRole('button', { name: 'Filter' }).click();
-    await page.getByRole('link', { name: `Edit entry ${slug}` }).click();
+    const item = page.getByRole('listitem').filter({ hasText: quote });
+    await expect(item.getByText('Published')).toBeVisible();
+    const edit = item.getByRole('link', { name: /^Edit entry / });
+    const slug = ((await edit.getAttribute('aria-label')) ?? '').replace('Edit entry ', '');
+    await edit.click();
 
     await page.getByText('Delete entry…').click();
     await expect(page.getByText('This cannot be undone.')).toBeVisible();
-    expect((await findEntry(marker))?.status).toBe('published');
     await page.getByRole('button', { name: 'Delete for good' }).click();
     await expect(page).toHaveURL(/\/admin\/entries\?message=/);
     await expect(page.getByText('Entry deleted.')).toBeVisible();
 
-    expect(await findEntry(marker)).toBeNull();
-    await new FeedPage(page).goto();
-    await expect(page.getByText(quote)).toHaveCount(0);
+    // Gone from the admin list, the feed and its permalink.
+    await page.getByLabel('Filter entries').fill(quote);
+    await page.getByRole('button', { name: 'Filter' }).click();
+    await expect(page.getByText('Nothing matches that filter.')).toBeVisible();
+    expect(await feedShows(page, quote)).toBe(false);
     const permalink = await page.goto(`/a/${slug}`);
     expect(permalink?.status()).toBe(404);
   });
