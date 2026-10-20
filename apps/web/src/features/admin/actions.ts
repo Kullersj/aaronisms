@@ -29,8 +29,8 @@ function field(formData: FormData, name: string): string {
 }
 
 /**
- * Emails a magic link, but only to the default moderator. The reply is the same for everyone so
- * the form does not reveal who the admin is.
+ * Emails a magic link, but only to a moderator (an address in MODERATOR_EMAILS). The reply is the
+ * same for everyone so the form does not reveal who the moderators are.
  */
 export async function requestMagicLink(
   _previous: LoginState,
@@ -41,11 +41,11 @@ export async function requestMagicLink(
   if (!(await checkRateLimit(RATE_LIMITS.login, getClientIp(await headers())))) {
     return { message: 'Too many attempts. Please try again later.' };
   }
-  if (email === env.defaultModerator) {
-    // Sign-up is off, so the admin's account is created here, with the service role.
+  if (env.isModerator(email)) {
+    // Sign-up is off, so a moderator's account is created here, with the service role.
     const created = await createAdminClient().auth.admin.createUser({ email, email_confirm: true });
     if (created.error && created.error.code !== 'email_exists') {
-      console.error('Could not create the admin account', created.error);
+      console.error('Could not create the moderator account', created.error);
       return { message: 'We could not send the link. Please try again.' };
     }
     const supabase = await createSessionClient();

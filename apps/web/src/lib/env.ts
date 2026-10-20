@@ -101,6 +101,8 @@ export function parseServerEnv(source: Record<string, string | undefined>) {
     siteUrl: env.SITE_URL,
     moderatorEmails: env.MODERATOR_EMAILS,
     defaultModerator,
+    /** Whether `email` (any case) is one of MODERATOR_EMAILS, every one of whom may use the admin. */
+    isModerator: (email: string) => env.MODERATOR_EMAILS.includes(email.toLowerCase()),
     turnstileSecretKey: env.TURNSTILE_SECRET_KEY,
     turnstileSiteKey: env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
     email: emailConfig(env),

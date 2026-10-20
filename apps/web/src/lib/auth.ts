@@ -10,7 +10,7 @@ const INBOX_METHODS = new Set(['otp', 'magiclink']);
 
 /**
  * Whether the current session began with an emailed magic link. Sign-up is off, but this keeps a
- * password session for the admin's address (if one ever existed) from passing as the admin.
+ * password session for a moderator's address (if one ever existed) from passing as the admin.
  */
 export async function isMagicLinkSession(
   supabase: Awaited<ReturnType<typeof createSessionClient>>,
@@ -22,8 +22,8 @@ export async function isMagicLinkSession(
 }
 
 /**
- * The signed-in admin: the default moderator (the first address in MODERATOR_EMAILS) after a
- * magic-link sign-in. Anyone else is sent back to the login page. Call it at the top of every
+ * The signed-in admin: any moderator (an address in MODERATOR_EMAILS) after a magic-link
+ * sign-in. Anyone else is sent back to the login page. Call it at the top of every
  * admin page and Server Action.
  */
 export async function requireAdmin(): Promise<AdminUser> {
@@ -31,7 +31,7 @@ export async function requireAdmin(): Promise<AdminUser> {
   const { data } = await supabase.auth.getUser();
   const email = data.user?.email?.toLowerCase();
   if (!email) redirect('/admin/login');
-  if (email !== getServerEnv().defaultModerator || !(await isMagicLinkSession(supabase))) {
+  if (!getServerEnv().isModerator(email) || !(await isMagicLinkSession(supabase))) {
     redirect('/admin/login?error=forbidden');
   }
   return { email };

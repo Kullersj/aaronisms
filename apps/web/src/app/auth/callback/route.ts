@@ -4,8 +4,8 @@ import { getServerEnv } from '@/lib/env';
 import { createSessionClient } from '@/lib/supabase/session';
 
 /**
- * Finishes the magic-link sign-in: trades the one-time code for a session cookie. Only the default
- * moderator may stay signed in; anyone else is signed straight back out.
+ * Finishes the magic-link sign-in: trades the one-time code for a session cookie. Only a moderator
+ * may stay signed in; anyone else is signed straight back out.
  */
 export async function GET(request: NextRequest) {
   const login = (error: string) =>
@@ -17,10 +17,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) return login('link');
 
-  if (
-    data.user.email?.toLowerCase() !== getServerEnv().defaultModerator ||
-    !(await isMagicLinkSession(supabase))
-  ) {
+  if (!getServerEnv().isModerator(data.user.email ?? '') || !(await isMagicLinkSession(supabase))) {
     await supabase.auth.signOut({ scope: 'local' });
     return login('forbidden');
   }

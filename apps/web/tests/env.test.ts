@@ -85,6 +85,14 @@ describe('parseServerEnv', () => {
     expect(env.siteUrl).toBe('http://localhost:3000');
   });
 
+  it('treats every listed address, in any case, as a moderator', () => {
+    const env = parseServerEnv({ ...base, RESEND_API_KEY: 're_123' });
+    expect(env.isModerator('first@example.com')).toBe(true);
+    expect(env.isModerator('Second@Example.com')).toBe(true);
+    expect(env.isModerator('someone@example.com')).toBe(false);
+    expect(env.isModerator('')).toBe(false);
+  });
+
   it('names every missing variable', () => {
     expect(() => parseServerEnv({})).toThrow(
       /NEXT_PUBLIC_SUPABASE_URL.*SUPABASE_SERVICE_ROLE_KEY.*SITE_URL.*MODERATOR_EMAILS/,
