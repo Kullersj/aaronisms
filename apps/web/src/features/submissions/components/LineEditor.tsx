@@ -32,7 +32,9 @@ export function LineEditor({ speakers }: LineEditorProps) {
       <ol className="flex flex-col gap-3">
         {fields.map((field, index) => {
           const rowErrors = errors.lines?.[index];
-          const isStage = watch(`lines.${index}.kind`) === 'stage';
+          const kind = watch(`lines.${index}.kind`);
+          const isContext = kind === 'context';
+          const isStage = kind === 'stage' || isContext;
           return (
             <li
               key={field.id}
@@ -44,13 +46,15 @@ export function LineEditor({ speakers }: LineEditorProps) {
                   className="w-auto shrink-0"
                   {...register(`lines.${index}.kind`, {
                     onChange: (event) => {
-                      if (event.target.value === 'stage') setValue(`lines.${index}.speaker`, null);
+                      if (event.target.value !== 'line') setValue(`lines.${index}.speaker`, null);
                       else setValue(`lines.${index}.speaker`, '');
                     },
                   })}
                 >
                   <option value="line">Line</option>
                   <option value="stage">Stage direction</option>
+                  {/* Only imported entries have setup lines after the first line. */}
+                  {isContext ? <option value="context">Setup</option> : null}
                 </Select>
                 {isStage ? null : (
                   <Controller
@@ -82,7 +86,11 @@ export function LineEditor({ speakers }: LineEditorProps) {
               <Textarea
                 rows={2}
                 aria-label={
-                  isStage ? `Stage direction ${index + 1}` : `What they said, line ${index + 1}`
+                  isContext
+                    ? `Setup ${index + 1}`
+                    : isStage
+                      ? `Stage direction ${index + 1}`
+                      : `What they said, line ${index + 1}`
                 }
                 placeholder={isStage ? 'Everyone nods slowly.' : 'What they said'}
                 aria-invalid={Boolean(rowErrors?.text) || undefined}

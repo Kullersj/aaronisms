@@ -43,6 +43,7 @@ export function AdminEntryForm({
   const [newStatus, setNewStatus] = useState(status);
   const [alt, setAlt] = useState(imageAlt ?? '');
   const [photo, setPhoto] = useState<File>();
+  const [fileKey, setFileKey] = useState(0);
   const [removeImage, setRemoveImage] = useState(false);
   const pending = status === 'pending';
 
@@ -50,15 +51,30 @@ export function AdminEntryForm({
     const data = new FormData();
     data.set(
       'payload',
-      JSON.stringify({ edit, status: newStatus, imageAlt: alt, removeImage, intent }),
+      JSON.stringify({
+        edit,
+        status: newStatus,
+        expectedStatus: status,
+        imageAlt: alt,
+        removeImage,
+        intent,
+      }),
     );
     if (photo) data.set('image', photo);
-    const result = await saveEntry(entryId, data);
-    if (!result.ok) return toast.error(result.message);
+    try {
+      const result = await saveEntry(entryId, data);
+      if (!result.ok) return toast.error(result.message);
+    } catch {
+      return toast.error('Something went wrong. Please try again.');
+    }
     toast.success(intent === 'approve' ? 'Saved and approved.' : 'Saved.');
     // The refreshed entry is published now; without this the status select would still say
     // pending, and the next Save would take the entry down again.
     if (intent === 'approve') setNewStatus('published');
+    // The photo is stored now; keeping it would upload it again on the next Save.
+    setPhoto(undefined);
+    setFileKey((key) => key + 1);
+    setRemoveImage(false);
     router.refresh();
   }
 
@@ -84,6 +100,7 @@ export function AdminEntryForm({
             />
           ) : null}
           <Input
+            key={fileKey}
             id="image"
             type="file"
             accept={IMAGE_TYPES.join(',')}

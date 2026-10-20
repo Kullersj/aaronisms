@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { revalidateTag } from 'next/cache';
 import { z } from 'zod';
 import { ENTRIES_TAG } from '@/features/entries/queries';
-import { decideAsAdmin } from '@/features/moderation/decisions';
+import { decideAsAdmin, type DecisionOutcome } from '@/features/moderation/decisions';
 import { getEntryForReview } from '@/features/moderation/queries';
 import { imageExtension, sniffImageType } from '@/features/submissions/image';
 import { buildLinePayload } from '@/features/submissions/lines';
@@ -22,6 +22,7 @@ export type LoginState = { message: string } | null;
 export type SaveResult = { ok: true } | { ok: false; message: string };
 
 const MAX_NOTE_LENGTH = 500;
+const STALE_MESSAGE = 'This entry was changed by someone else; reload and try again.';
 
 function field(formData: FormData, name: string): string {
   const value = formData.get(name);
@@ -69,20 +70,28 @@ export async function signOut(): Promise<void> {
   redirect('/admin/login');
 }
 
+/** Back to the queue, saying so when the decision did not apply. */
+function queueUrl(outcome: DecisionOutcome): string {
+  if (outcome === 'decided') return '/admin';
+  return `/admin?message=${encodeURIComponent('Nothing changed: that entry was already decided or no longer exists.')}`;
+}
+
 export async function approveEntryAsAdmin(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
-  await decideAsAdmin(field(formData, 'entryId'), admin.email, { kind: 'approve' });
-  redirect('/admin');
+  const outcome = await decideAsAdmin(field(formData, 'entryId'), admin.email, {
+    kind: 'approve',
+  });
+  redirect(queueUrl(outcome));
 }
 
 export async function rejectEntryAsAdmin(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
   const note = field(formData, 'note').trim().slice(0, MAX_NOTE_LENGTH);
-  await decideAsAdmin(field(formData, 'entryId'), admin.email, {
+  const outcome = await decideAsAdmin(field(formData, 'entryId'), admin.email, {
     kind: 'reject',
     note: note || undefined,
   });
-  redirect('/admin');
+  redirect(queueUrl(outcome));
 }
 
 /** Stores a replacement photo and returns its path, or null if it is not a supported image. */
@@ -112,10 +121,14 @@ export async function saveEntry(entryId: string, formData: FormData): Promise<Sa
   }
   const parsed = adminEntrySchema.safeParse(payload);
   if (!parsed.success) return { ok: false, message: 'Please check the form and try again.' };
-  const { edit, status, imageAlt, removeImage, intent } = parsed.data;
+  const { edit, status, expectedStatus, imageAlt, removeImage, intent } = parsed.data;
 
   const current = await getEntryForReview(entryId);
   if (!current) return { ok: false, message: 'That entry no longer exists.' };
+  // A form opened before someone else decided the entry must not overwrite that decision.
+  if (current.status !== expectedStatus) {
+    return { ok: false, message: STALE_MESSAGE };
+  }
 
   const client = createAdminClient();
   const upload = formData.get('image');
@@ -161,7 +174,7 @@ export async function saveEntry(entryId: string, formData: FormData): Promise<Sa
         p_lines: buildLinePayload(edit, speakerIds),
       });
       if (error) throw new Error(`Could not save the entry: ${error.message}`);
-      if (current.status !== 'pending' && status !== current.status) {
+      if (current.status !== 'pending' && status !== expectedStatus) {
         const { error: statusError } = await client
           .from('entries')
           .update({

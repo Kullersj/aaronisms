@@ -94,7 +94,7 @@ export default async function ModeratePage({ params, searchParams }: PageProps) 
         </Notice>
       );
     case 'decided':
-      return <DecidedNotice view={view} justDecided={done === '1'} />;
+      return <DecidedNotice view={view} justDecided={done === 'decided'} />;
     case 'open': {
       const { entry } = view;
       const editing = action === 'edit';

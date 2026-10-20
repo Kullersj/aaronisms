@@ -195,13 +195,24 @@ test.describe('moderation by email link', () => {
     await Promise.all([mine.goto(links.first.approve), theirs.goto(links.second.reject)]);
     await Promise.all([mine.approve.click(), theirs.reject.click()]);
 
-    const outcome = /^(Approved|Rejected)$/;
-    const decision = page.getByRole('heading', { level: 2, name: outcome });
-    await expect(decision).toBeVisible();
-    await expect(otherPage.getByRole('heading', { level: 2, name: outcome })).toBeVisible();
-    // Exactly one decision stands, and both moderators are told the same thing.
-    const winner = await decision.textContent();
-    await expect(otherPage.getByRole('heading', { level: 2, name: winner ?? '' })).toBeVisible();
+    // Exactly one decision stands. Its moderator is told they decided; the other is told it was
+    // already decided, not that their own click worked.
+    const heading = (p: Page) => p.getByRole('heading', { level: 2 });
+    await expect(heading(page)).toHaveText(
+      /^(Approved|Rejected|Already approved|Already rejected)$/,
+    );
+    await expect(heading(otherPage)).toHaveText(
+      /^(Approved|Rejected|Already approved|Already rejected)$/,
+    );
+    const mineText = (await heading(page).textContent()) ?? '';
+    const winner = /^Already/.test(mineText) ? 'Rejected' : mineText;
+    const pair =
+      winner === 'Approved' ? ['Approved', 'Already approved'] : ['Rejected', 'Already rejected'];
+    const [winnerPage, loserPage] = /^Already/.test(mineText)
+      ? [otherPage, page]
+      : [page, otherPage];
+    await expect(heading(winnerPage)).toHaveText(pair[0] ?? '');
+    await expect(heading(loserPage)).toHaveText(pair[1] ?? '');
     // The standing decision carries the name of the moderator who made it.
     await mine.goto(links.first.approve);
     await expect(
