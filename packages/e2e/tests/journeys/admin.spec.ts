@@ -274,6 +274,8 @@ test.describe('admin, everyone else', () => {
     const opening = await browser.newContext({ extraHTTPHeaders: clientIpHeaders });
     try {
       const link = await requestSignInLink(await asking.newPage(), second);
+      // A mail scanner fetching the link first must not use up the one-time token.
+      expect((await opening.request.get(link)).ok()).toBe(true);
       await followSignInLink(await opening.newPage(), link);
     } finally {
       await asking.close();

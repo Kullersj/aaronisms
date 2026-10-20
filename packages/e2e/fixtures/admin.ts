@@ -25,9 +25,10 @@ export async function requestSignInLink(page: Page, email: string): Promise<stri
   return waitForMagicLink(email, known);
 }
 
-/** Follows a sign-in link and checks that it lands in the admin. */
+/** Follows a sign-in link, presses Sign in as the moderator would, and checks it lands in the admin. */
 export async function followSignInLink(page: Page, link: string) {
   await page.goto(link);
+  await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByRole('navigation', { name: 'Admin' })).toBeVisible();
 }
