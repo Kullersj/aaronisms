@@ -34,7 +34,5 @@ export function moderators(): [string, string, ...string[]] {
   return [first, second, ...rest];
 }
 
-export const MAILPIT_URL = process.env.MAILPIT_URL ?? 'http://127.0.0.1:54324';
-
 /** Where the signed-in admin's browser state is saved by the setup project. */
 export const ADMIN_STATE = new URL('../.auth/admin.json', import.meta.url).pathname;

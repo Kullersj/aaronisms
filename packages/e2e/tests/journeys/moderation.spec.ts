@@ -45,7 +45,8 @@ test.describe('moderation by email link', () => {
     const links = await submitAndCollectLinks(page, marker, quote);
 
     // The email names the submitter, quotes the entry and replies to the default moderator.
-    expect(links.emailSecond.subject).toBe(`New Aaronism submitted by ${marker}`);
+    expect(links.emailSecond.subject).toMatch(/^New submission/);
+    expect(links.emailSecond.subject).not.toContain(marker);
     expect(links.emailSecond.replyTo).toBe(first);
     expect(links.emailSecond.html).toContain(quote);
     expect(links.emailSecond.html).toContain('Edit before approving');

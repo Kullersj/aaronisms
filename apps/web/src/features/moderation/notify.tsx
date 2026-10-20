@@ -33,16 +33,17 @@ export async function notifyModerators(entry: ReviewEntry, tokens: ModerationTok
   const env = getServerEnv();
   // Signed so the private photo opens from the email for as long as the links in it work.
   const imageUrl = await reviewPhotoUrl(entry.imagePath, EMAIL_PHOTO_SECONDS).catch(() => null);
+  const dateLabel = entry.saidOn ? formatEntryDate(entry.saidOn) : '';
   const results = await Promise.allSettled(
     tokens.map((moderator) =>
       sendEmail(env.email, {
         to: moderator.email,
         replyTo: env.defaultModerator,
-        subject: newSubmissionSubject(entry.submittedBy),
+        subject: newSubmissionSubject(dateLabel),
         react: (
           <NewSubmissionEmail
             submitterName={entry.submittedBy}
-            dateLabel={entry.saidOn ? formatEntryDate(entry.saidOn) : ''}
+            dateLabel={dateLabel}
             lines={entry.lines.map((line) => ({
               kind: line.kind,
               speaker: lineSpeakerName(line),

@@ -7,8 +7,8 @@
     "./database.types": "./src/database.types.ts",
     "./schemas": "./src/schemas.ts",
     "./slug": "./src/slug.ts",
-    "./testing/global-setup": "./testing/global-setup.ts",
-    "./testing/local-only": "./testing/local-only.ts"
+    "./testing/local-only": "./testing/local-only.ts",
+    "./testing/mailpit": "./testing/mailpit.ts"
   },
   "scripts": {
     "db:types": "supabase gen types typescript --local > src/database.types.ts",
