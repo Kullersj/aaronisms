@@ -1,5 +1,11 @@
 # @aaronisms/web
 
+## 0.7.1
+
+### Patch Changes
+
+- 70d1ed2: Add analytics and speed insights
+
 ## 0.7.0
 
 ### Minor Changes
