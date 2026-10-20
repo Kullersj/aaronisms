@@ -18,6 +18,8 @@
     "@marsidev/react-turnstile": "^1.6.2",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "lucide-react": "^1.59.0",
     "next": "catalog:",
     "react": "catalog:",
