@@ -90,9 +90,22 @@ export async function checkRls({ url, anonKey, allowNonAnonKey }: CheckOptions) 
   // Reads that must work, and must show nothing unpublished. Lines and speakers are read before
   // entries: an entry published in between is then already visible when entries are read, so a
   // line seen here is never reported as belonging to an unpublished entry by mistake.
-  const lines = await readAll('entry_lines', 'id, entry_id, speaker_id');
-  const speakers = await readAll('speakers', 'id');
-  const entries = await readAll('entries', 'id, slug, status');
+  // Other writers (another test suite, or the site in production) can still unpublish or delete an
+  // entry between the reads, so when lines or speakers look orphaned the reads are taken once more:
+  // a real leak shows up both times, a race almost never does.
+  const readVisible = async () => {
+    const lines = await readAll('entry_lines', 'id, entry_id, speaker_id');
+    const speakers = await readAll('speakers', 'id');
+    const entries = await readAll('entries', 'id, slug, status');
+    const ids = new Set(entries.filter((e) => e.status === 'published').map((e) => e.id));
+    const used = new Set(lines.filter((l) => ids.has(l.entry_id)).map((l) => l.speaker_id));
+    const consistent =
+      lines.every((l) => ids.has(l.entry_id)) && speakers.every((s) => used.has(s.id));
+    return { lines, speakers, entries, consistent };
+  };
+  let visible = await readVisible();
+  if (!visible.consistent) visible = await readVisible();
+  const { lines, speakers, entries } = visible;
   record(
     'entries: only published rows are readable',
     entries.every((e) => e.status === 'published')
