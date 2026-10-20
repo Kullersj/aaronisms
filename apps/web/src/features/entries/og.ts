@@ -1,4 +1,5 @@
 import type { Entry } from '@aaronisms/db/schemas';
+import { lineSpeakerName } from './utils';
 
 export type OgLine = { speaker: string | null; text: string };
 
@@ -32,7 +33,7 @@ export function ogContent(entry: Entry, maxChars = 140, maxLines = 4): OgContent
       truncated = true;
       break;
     }
-    const speaker = line.kind === 'line' ? (line.speaker?.name ?? line.speakerLabel) : null;
+    const speaker = line.kind === 'line' ? lineSpeakerName(line) : null;
     const text = line.text.replace(/\s+/g, ' ').trim();
     const room = budget - (speaker?.length ?? 0);
     const fitted = truncateText(text, Math.max(room, 20));

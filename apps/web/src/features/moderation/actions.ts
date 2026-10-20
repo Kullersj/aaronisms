@@ -3,13 +3,12 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { entryEditSchema, type EntryEdit } from '@aaronisms/db/schemas';
+import { field, noteField } from '@/lib/form';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { decideWithToken, type Decision, type DecisionOutcome } from './decisions';
 import { isTokenShaped } from './tokens';
 
 export type EditResult = { ok: false; message: string };
-
-const MAX_NOTE_LENGTH = 500;
 
 /** `done` is the outcome, so the page can tell "you decided" from "it was already decided". */
 function pageUrl(token: string, outcome?: DecisionOutcome) {
@@ -31,17 +30,12 @@ async function decideAndReturn(
   redirect(pageUrl(token, outcome));
 }
 
-function field(formData: FormData, name: string): string {
-  const value = formData.get(name);
-  return typeof value === 'string' ? value : '';
-}
-
 export async function approveByToken(formData: FormData): Promise<void> {
   return decideAndReturn(field(formData, 'token'), { kind: 'approve' });
 }
 
 export async function rejectByToken(formData: FormData): Promise<void> {
-  const note = field(formData, 'note').trim().slice(0, MAX_NOTE_LENGTH);
+  const note = noteField(formData);
   return decideAndReturn(field(formData, 'token'), { kind: 'reject', note: note || undefined });
 }
 

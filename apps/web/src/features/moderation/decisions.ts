@@ -1,7 +1,6 @@
 import 'server-only';
-import { revalidateTag } from 'next/cache';
 import type { EntryEdit } from '@aaronisms/db/schemas';
-import { ENTRIES_TAG } from '@/features/entries/queries';
+import { expireEntries } from '@/features/entries/queries';
 import { buildLinePayload } from '@/features/submissions/lines';
 import { resolveSpeakerIds } from '@/features/submissions/speakers';
 import { getServerEnv } from '@/lib/env';
@@ -59,7 +58,7 @@ function toOutcome(outcome: string | null): DecisionOutcome {
   if (!outcome || !OUTCOMES.includes(outcome)) throw new Error(`Unexpected outcome: ${outcome}`);
   if (outcome === 'decided') {
     // Any decision changes what the public may see; expire at once rather than after an hour.
-    revalidateTag(ENTRIES_TAG, { expire: 0 });
+    expireEntries();
   }
   return outcome as DecisionOutcome;
 }

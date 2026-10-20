@@ -5,6 +5,7 @@ import {
   entryToEditValues,
   speakerNamesBySlug,
 } from '@/features/submissions/lines';
+import { makeEntry } from './factories';
 
 const lines = [
   { kind: 'line' as const, speaker: 'Test Aaron', text: 'First' },
@@ -52,29 +53,21 @@ describe('buildLinePayload', () => {
 });
 
 describe('entryToEditValues', () => {
-  const entry = (kinds: Array<'line' | 'stage' | 'context'>): Entry => ({
-    id: '10000000-0000-4000-8000-000000000001',
-    slug: '2026-01-05-1',
-    saidOn: '2026-01-05',
-    era: 'modern',
-    status: 'pending',
-    imagePath: null,
-    imageAlt: null,
-    noPreview: false,
-    publishedAt: null,
-    createdAt: '2026-01-05T00:00:00+00:00',
-    lines: kinds.map((kind, index) => ({
-      id: `20000000-0000-4000-8000-00000000000${index}`,
-      position: index + 1,
-      kind,
-      speaker:
-        kind === 'line'
-          ? { id: '30000000-0000-4000-8000-000000000001', name: 'Pat', slug: 'pat' }
-          : null,
-      speakerLabel: null,
-      text: `text ${index}`,
-    })),
-  });
+  const entry = (kinds: Array<'line' | 'stage' | 'context'>): Entry =>
+    makeEntry({
+      status: 'pending',
+      lines: kinds.map((kind, index) => ({
+        id: `20000000-0000-4000-8000-00000000000${index}`,
+        position: index + 1,
+        kind,
+        speaker:
+          kind === 'line'
+            ? { id: '30000000-0000-4000-8000-000000000001', name: 'Pat', slug: 'pat' }
+            : null,
+        speakerLabel: null,
+        text: `text ${index}`,
+      })),
+    });
 
   it('moves a leading setup line into the setup field', () => {
     const values = entryToEditValues(entry(['context', 'line', 'stage']));
@@ -98,19 +91,13 @@ describe('entryToEditValues', () => {
 });
 
 describe('editing an existing entry round-trips its lines', () => {
-  const base: Entry = {
-    id: '10000000-0000-4000-8000-000000000001',
+  const base = makeEntry({
     slug: 'college-1',
     saidOn: null,
     era: 'college',
-    status: 'published',
-    imagePath: null,
-    imageAlt: null,
-    noPreview: false,
     publishedAt: '2026-01-05T00:00:00+00:00',
     createdAt: '2026-01-05T00:00:00+00:00',
-    lines: [],
-  };
+  });
   const line = (
     position: number,
     kind: 'line' | 'stage' | 'context',

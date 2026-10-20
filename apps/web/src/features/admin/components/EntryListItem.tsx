@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { EntryStatus } from '@aaronisms/db/schemas';
-import { formatEntryDate, formatStageDirection } from '@/features/entries/utils';
+import { formatEntryDate, formatStageDirection, lineSpeakerName } from '@/features/entries/utils';
 import type { ReviewEntry } from '@/features/moderation/queries';
 
 const STATUS_LABELS: Record<EntryStatus, string> = {
@@ -13,7 +13,7 @@ const STATUS_LABELS: Record<EntryStatus, string> = {
 /** One entry in the admin's list: its date, status and first line, linking to its edit page. */
 export function EntryListItem({ entry }: { entry: ReviewEntry }) {
   const first = entry.lines[0];
-  const speaker = first?.speaker?.name ?? first?.speakerLabel;
+  const speaker = first && lineSpeakerName(first);
   return (
     <li className="bg-card border-border flex flex-col gap-1 rounded-md border p-4">
       <p className="text-muted-foreground text-sm">

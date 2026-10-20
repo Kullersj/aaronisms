@@ -8,6 +8,7 @@ import {
   formatStageDirection,
   groupEntriesByYear,
 } from '@/features/entries/utils';
+import { makeEntry } from './factories';
 
 function entry(
   slug: string,
@@ -15,16 +16,11 @@ function entry(
   text = 'Hello',
   createdAt = '2026-01-01T00:00:00+00:00',
 ): Entry {
-  return {
+  return makeEntry({
     id: slug,
     slug,
     saidOn,
     era: saidOn ? 'modern' : 'college',
-    status: 'published',
-    imagePath: null,
-    imageAlt: null,
-    noPreview: false,
-    publishedAt: null,
     createdAt,
     lines: [
       {
@@ -36,7 +32,7 @@ function entry(
         text,
       },
     ],
-  };
+  });
 }
 
 describe('formatEntryDate', () => {
@@ -113,6 +109,14 @@ describe('entrySummary', () => {
   it('uses the first spoken line with its speaker and truncates', () => {
     expect(entrySummary(entry('a', '2026-01-05', 'Hi'))).toBe('Test Aaron: Hi');
     expect(entrySummary(entry('a', '2026-01-05', 'x'.repeat(300)), 20)).toHaveLength(20);
+  });
+
+  it('never splits an emoji when it truncates', () => {
+    const summary = entrySummary(entry('a', '2026-01-05', '😀'.repeat(50)), 20);
+    expect(Array.from(summary)).toHaveLength(20);
+    expect(summary).not.toMatch(
+      /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/,
+    );
   });
 });
 

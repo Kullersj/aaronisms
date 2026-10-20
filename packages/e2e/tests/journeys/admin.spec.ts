@@ -219,7 +219,7 @@ test.describe('admin, signed in as the default moderator', () => {
     const row = admin.speakerRow(`${marker} Speaker`);
     await row.getByLabel(`New name for ${marker} Speaker`).fill(`${marker} Renamed`);
     await row.getByRole('button', { name: 'Rename' }).click();
-    await expect(page.getByText(`Renamed to ${marker} Renamed.`)).toBeVisible();
+    await expect(page.getByText('Renamed.', { exact: true })).toBeVisible();
 
     const renamed = admin.speakerRow(`${marker} Renamed`);
     await expect(renamed.getByText('1 line')).toBeVisible();

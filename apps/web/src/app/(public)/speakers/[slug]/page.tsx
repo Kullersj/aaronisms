@@ -7,7 +7,6 @@ import { EntryCard } from '@/features/entries/components/EntryCard';
 import { getSpeakerPage } from '@/features/speakers/queries';
 
 export const dynamic = 'force-dynamic';
-export const dynamicParams = true;
 
 type PageProps = { params: Promise<{ slug: string }> };
 

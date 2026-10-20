@@ -8,19 +8,13 @@ import {
   searchTerms,
   speakerFacets,
 } from '@/features/search/utils';
+import { makeEntry } from './factories';
 
 function entry(slug: string, speakers: Array<[string, string]>): Entry {
-  return {
+  return makeEntry({
     id: slug,
     slug,
     saidOn: '2026-01-01',
-    era: 'modern',
-    status: 'published',
-    imagePath: null,
-    imageAlt: null,
-    noPreview: false,
-    publishedAt: null,
-    createdAt: '2026-01-01T00:00:00+00:00',
     lines: speakers.map(([name, slugOf], i) => ({
       id: `${slug}-${i}`,
       position: i + 1,
@@ -29,7 +23,7 @@ function entry(slug: string, speakers: Array<[string, string]>): Entry {
       speakerLabel: null,
       text: 'Hello',
     })),
-  };
+  });
 }
 
 describe('normalizeQuery', () => {

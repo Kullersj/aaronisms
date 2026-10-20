@@ -1,6 +1,6 @@
 import 'server-only';
 import { AlertEmail, NewSubmissionEmail, newSubmissionSubject, sendEmail } from '@aaronisms/email';
-import { formatEntryDate } from '@/features/entries/utils';
+import { formatEntryDate, lineSpeakerName } from '@/features/entries/utils';
 import { getServerEnv } from '@/lib/env';
 import { EMAIL_PHOTO_SECONDS, reviewPhotoUrl } from '@/lib/supabase/photos';
 import type { ReviewEntry } from './queries';
@@ -45,7 +45,7 @@ export async function notifyModerators(entry: ReviewEntry, tokens: ModerationTok
             dateLabel={entry.saidOn ? formatEntryDate(entry.saidOn) : ''}
             lines={entry.lines.map((line) => ({
               kind: line.kind,
-              speaker: line.speaker?.name ?? line.speakerLabel,
+              speaker: lineSpeakerName(line),
               text: line.text,
             }))}
             imageUrl={imageUrl}

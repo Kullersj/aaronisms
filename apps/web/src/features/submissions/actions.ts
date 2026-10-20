@@ -7,6 +7,7 @@ import { createModerationTokens } from '@/features/moderation/tokens';
 import { alertDefaultModerator, notifyModerators } from '@/features/moderation/notify';
 import { getEntryForReview } from '@/features/moderation/queries';
 import { getServerEnv } from '@/lib/env';
+import { jsonField } from '@/lib/form';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { removePhoto, storePhoto } from '@/lib/supabase/photos';
@@ -20,14 +21,8 @@ const fail = (message: string): SubmitResult => ({ ok: false, message });
 
 /** Reads the form payload: JSON fields plus the optional photo. */
 function parseSubmission(formData: FormData) {
-  const payload = formData.get('payload');
+  const fields = jsonField(formData);
   const image = formData.get('image');
-  let fields: unknown;
-  try {
-    fields = typeof payload === 'string' ? JSON.parse(payload) : null;
-  } catch {
-    fields = null;
-  }
   const hasImage = image instanceof File && image.size > 0;
   return newSubmissionSchema.safeParse({
     ...(typeof fields === 'object' ? fields : null),

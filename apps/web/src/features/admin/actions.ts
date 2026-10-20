@@ -2,31 +2,26 @@
 
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { revalidateTag } from 'next/cache';
 import { z } from 'zod';
-import { ENTRIES_TAG } from '@/features/entries/queries';
+import { expireEntries } from '@/features/entries/queries';
 import { decideAsAdmin, type DecisionOutcome } from '@/features/moderation/decisions';
 import { getEntryForReview } from '@/features/moderation/queries';
 import { buildLinePayload } from '@/features/submissions/lines';
 import { resolveSpeakerIds } from '@/features/submissions/speakers';
 import { requireAdmin } from '@/lib/auth';
 import { getServerEnv } from '@/lib/env';
+import { field, jsonField, noteField } from '@/lib/form';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { movePhoto, removePhoto, storePhoto } from '@/lib/supabase/photos';
 import { createSessionClient } from '@/lib/supabase/session';
+import { adminMessageUrl } from './messages';
 import { adminEntrySchema } from './schema';
 
 export type LoginState = { message: string } | null;
 export type SaveResult = { ok: true } | { ok: false; message: string };
 
-const MAX_NOTE_LENGTH = 500;
 const STALE_MESSAGE = 'This entry was changed by someone else; reload and try again.';
-
-function field(formData: FormData, name: string): string {
-  const value = formData.get(name);
-  return typeof value === 'string' ? value : '';
-}
 
 /**
  * Emails a magic link, but only to a moderator (an address in MODERATOR_EMAILS). The reply is the
@@ -72,7 +67,7 @@ export async function signOut(): Promise<void> {
 /** Back to the queue, saying so when the decision did not apply. */
 function queueUrl(outcome: DecisionOutcome): string {
   if (outcome === 'decided') return '/admin';
-  return `/admin?message=${encodeURIComponent('Nothing changed: that entry was already decided or no longer exists.')}`;
+  return adminMessageUrl('/admin', 'already-decided');
 }
 
 export async function approveEntryAsAdmin(formData: FormData): Promise<void> {
@@ -85,7 +80,7 @@ export async function approveEntryAsAdmin(formData: FormData): Promise<void> {
 
 export async function rejectEntryAsAdmin(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
-  const note = field(formData, 'note').trim().slice(0, MAX_NOTE_LENGTH);
+  const note = noteField(formData);
   const outcome = await decideAsAdmin(field(formData, 'entryId'), admin.email, {
     kind: 'reject',
     note: note || undefined,
@@ -99,13 +94,7 @@ export async function rejectEntryAsAdmin(formData: FormData): Promise<void> {
  */
 export async function saveEntry(entryId: string, formData: FormData): Promise<SaveResult> {
   const admin = await requireAdmin();
-  let payload: unknown;
-  try {
-    payload = JSON.parse(field(formData, 'payload'));
-  } catch {
-    payload = null;
-  }
-  const parsed = adminEntrySchema.safeParse(payload);
+  const parsed = adminEntrySchema.safeParse(jsonField(formData));
   if (!parsed.success) return { ok: false, message: 'Please check the form and try again.' };
   const { edit, status, expectedStatus, imageAlt, removeImage, intent } = parsed.data;
 
@@ -185,7 +174,7 @@ export async function saveEntry(entryId: string, formData: FormData): Promise<Sa
   if (current.imagePath && current.imagePath !== imagePath) await removePhoto(current.imagePath);
   if (photoMove) await movePhoto(entryId, imagePath, photoMove);
 
-  revalidateTag(ENTRIES_TAG, { expire: 0 });
+  expireEntries();
   return { ok: true };
 }
 
@@ -203,7 +192,7 @@ export async function deleteEntry(formData: FormData): Promise<void> {
     p_admin_email: admin.email,
   });
   if (error?.code === 'P0002') {
-    redirect(`/admin/entries?message=${encodeURIComponent('That entry was already deleted.')}`);
+    redirect(adminMessageUrl('/admin/entries', 'entry-already-deleted'));
   }
   if (error) throw new Error(`Could not delete the entry: ${error.message}`);
   const { data } = await client
@@ -212,6 +201,6 @@ export async function deleteEntry(formData: FormData): Promise<void> {
     .eq('id', entryId)
     .maybeSingle();
   await movePhoto(entryId, data?.image_path ?? null, 'private');
-  revalidateTag(ENTRIES_TAG, { expire: 0 });
-  redirect(`/admin/entries?message=${encodeURIComponent('Entry deleted.')}`);
+  expireEntries();
+  redirect(adminMessageUrl('/admin/entries', 'entry-deleted'));
 }

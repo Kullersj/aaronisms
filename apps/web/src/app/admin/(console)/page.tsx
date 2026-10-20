@@ -1,4 +1,6 @@
 import { EmptyState } from '@/components/layout/EmptyState';
+import { AdminNotice } from '@/features/admin/components/AdminNotice';
+import { adminMessage } from '@/features/admin/messages';
 import { EntryCard } from '@/features/entries/components/EntryCard';
 import { approveEntryAsAdmin, rejectEntryAsAdmin } from '@/features/admin/actions';
 import { DecisionPanel } from '@/features/moderation/components/DecisionPanel';
@@ -11,11 +13,7 @@ type PageProps = { searchParams: Promise<{ message?: string }> };
 export default async function AdminQueuePage({ searchParams }: PageProps) {
   await requireAdmin();
   const [{ message }, entries] = await Promise.all([searchParams, getPendingEntries()]);
-  const notice = message ? (
-    <p role="status" className="bg-card border-border rounded-md border p-3 text-sm">
-      {message}
-    </p>
-  ) : null;
+  const notice = <AdminNotice message={adminMessage(message)} />;
   const imageUrls = await Promise.all(entries.map((entry) => reviewPhotoUrl(entry.imagePath)));
   if (entries.length === 0) {
     return (

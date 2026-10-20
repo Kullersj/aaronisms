@@ -14,7 +14,7 @@ const state = {
 
 vi.mock('@/lib/auth', () => ({ requireAdmin: async () => ({ email: 'admin@example.com' }) }));
 vi.mock('next/cache', () => ({ revalidateTag: vi.fn() }));
-vi.mock('@/features/entries/queries', () => ({ ENTRIES_TAG: 'entries' }));
+vi.mock('@/features/entries/queries', () => ({ expireEntries: vi.fn() }));
 vi.mock('next/navigation', () => ({ redirect: vi.fn() }));
 vi.mock('next/headers', () => ({ headers: async () => new Headers() }));
 vi.mock('@/features/moderation/queries', () => ({ getEntryForReview: async () => state.entry }));

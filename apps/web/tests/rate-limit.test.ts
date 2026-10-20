@@ -3,6 +3,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import {
   checkRateLimit,
   getClientIp,
+  ipBucket,
   rateLimitBucket,
   type RateLimitPolicy,
 } from '@/lib/rate-limit';
@@ -37,6 +38,30 @@ describe('getClientIp', () => {
   it('returns null for missing or malformed addresses', () => {
     expect(getClientIp(headers({}))).toBeNull();
     expect(getClientIp(headers({ 'x-forwarded-for': 'not-an-ip' }))).toBeNull();
+  });
+});
+
+describe('ipBucket', () => {
+  it('leaves IPv4 addresses and a missing address as they are', () => {
+    expect(ipBucket('203.0.113.5')).toBe('203.0.113.5');
+    expect(ipBucket(null)).toBe('unknown');
+  });
+
+  it('puts every address in the same IPv6 /64 in one bucket', () => {
+    const bucket = '2001:0db8:0000:0042::/64';
+    expect(ipBucket('2001:db8:0:42::1')).toBe(bucket);
+    expect(ipBucket('2001:db8:0:42:aaaa:bbbb:cccc:dddd')).toBe(bucket);
+    expect(ipBucket('2001:DB8:0:42:0:0:0:9')).toBe(bucket);
+  });
+
+  it('separates different /64 networks', () => {
+    expect(ipBucket('2001:db8:0:43::1')).not.toBe(ipBucket('2001:db8:0:42::1'));
+    expect(ipBucket('2001:db8::1')).toBe('2001:0db8:0000:0000::/64');
+  });
+
+  it('expands :: at the start and an embedded IPv4 tail', () => {
+    expect(ipBucket('::1')).toBe('0000:0000:0000:0000::/64');
+    expect(ipBucket('::ffff:203.0.113.5')).toBe('0000:0000:0000:0000::/64');
   });
 });
 

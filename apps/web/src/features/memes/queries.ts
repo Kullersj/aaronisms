@@ -4,8 +4,6 @@ import type { Meme } from '@aaronisms/db/schemas';
 import { createAnonClient } from '@/lib/supabase/server';
 import { toMeme } from './mappers';
 
-export const MEMES_TAG = 'memes';
-
 /** Published memes, newest first. */
 export const getMemes = unstable_cache(
   async (): Promise<Meme[]> => {
@@ -18,5 +16,5 @@ export const getMemes = unstable_cache(
     return data.map(toMeme);
   },
   ['memes', 'published'],
-  { tags: [MEMES_TAG], revalidate: 3600 },
+  { tags: ['memes'], revalidate: 3600 },
 );

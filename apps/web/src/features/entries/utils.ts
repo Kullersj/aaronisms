@@ -57,6 +57,11 @@ export function formatStageDirection(text: string): string {
   return trimmed.startsWith('[') && trimmed.endsWith(']') ? trimmed : `[${trimmed}]`;
 }
 
+/** The name shown for a line's speaker: the linked speaker, else the free-text label. */
+export function lineSpeakerName(line: Entry['lines'][number]): string | null {
+  return line.speaker?.name ?? line.speakerLabel;
+}
+
 /** The description for link previews: generic when the entry opted out of quoting. */
 export function entryDescription(entry: Entry): string {
   return entry.noPreview ? 'An Aaronism.' : entrySummary(entry);
@@ -66,7 +71,14 @@ export function entryDescription(entry: Entry): string {
 export function entrySummary(entry: Entry, maxLength = 160): string {
   const line = entry.lines.find((l) => l.kind === 'line') ?? entry.lines[0];
   if (!line) return 'An Aaronism.';
-  const who = line.speaker?.name ?? line.speakerLabel;
+  const who = lineSpeakerName(line);
   const text = who && line.kind === 'line' ? `${who}: ${line.text}` : line.text;
-  return text.length > maxLength ? `${text.slice(0, maxLength - 1).trimEnd()}…` : text;
+  // Counts code points so an emoji is never cut in half.
+  const chars = Array.from(text);
+  return chars.length > maxLength
+    ? `${chars
+        .slice(0, maxLength - 1)
+        .join('')
+        .trimEnd()}…`
+    : text;
 }
