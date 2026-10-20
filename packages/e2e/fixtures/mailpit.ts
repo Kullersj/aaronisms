@@ -32,7 +32,7 @@ export async function waitForMagicLink(to: string, known: Set<string>): Promise<
         ).json()) as {
           Text: string;
         };
-        link = /https?:\/\/\S+\/auth\/v1\/verify\S+/.exec(message.Text)?.[0];
+        link = /https?:\/\/\S+\/auth\/confirm\?\S+/.exec(message.Text)?.[0];
         return link;
       },
       { message: `no sign-in email to ${to}`, timeout: 15_000 },

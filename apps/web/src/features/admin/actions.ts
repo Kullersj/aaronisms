@@ -10,7 +10,7 @@ import { getEntryForReview } from '@/features/moderation/queries';
 import { imageExtension, sniffImageType } from '@/features/submissions/image';
 import { buildLinePayload } from '@/features/submissions/lines';
 import { resolveSpeakerIds } from '@/features/submissions/speakers';
-import { requireAdmin } from '@/lib/auth';
+import { isMagicLinkSession, requireAdmin } from '@/lib/auth';
 import { getServerEnv } from '@/lib/env';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -60,6 +60,28 @@ export async function requestMagicLink(
     if (error) return { message: 'We could not send the link. Please try again.' };
   }
   return { message: 'If that address can sign in, a link is on its way. Check your email.' };
+}
+
+/**
+ * Finishes the magic-link sign-in from the emailed token hash, posted by /auth/confirm. Unlike the
+ * PKCE code that /auth/callback takes, the hash needs nothing stored in the browser that asked
+ * for the link, so the link works in any browser or device (a phone's mail app, say). Only a
+ * moderator may stay signed in; anyone else is signed straight back out.
+ */
+export async function confirmSignIn(formData: FormData): Promise<void> {
+  const tokenHash = field(formData, 'token_hash');
+  const type = field(formData, 'type');
+  if (!tokenHash || (type !== 'email' && type !== 'magiclink')) redirect('/admin/login?error=link');
+
+  const supabase = await createSessionClient();
+  const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+  if (error || !data.user) redirect('/admin/login?error=link');
+
+  if (!getServerEnv().isModerator(data.user.email ?? '') || !(await isMagicLinkSession(supabase))) {
+    await supabase.auth.signOut({ scope: 'local' });
+    redirect('/admin/login?error=forbidden');
+  }
+  redirect('/admin');
 }
 
 export async function signOut(): Promise<void> {

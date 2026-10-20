@@ -6,7 +6,8 @@ What is left for Seth, in order. The code is finished; every step here is an acc
 
 1. In Project Settings, Integrations, connect the GitHub repository with the Supabase directory set to `packages/db`, so merging to `main` applies the migrations. Confirm the migrations ran (Database, Migrations).
 2. Authentication, Sign In / Providers: turn **off** "Allow new users to sign up" (see [Submissions, moderation and admin](../README.md#submissions-moderation-and-admin)).
-3. Database, Backups: turn on the backups your plan offers. The scheduled dump in step 4 is the second copy.
+3. Authentication, Emails, Magic Link: set the subject to `Your Aaronisms sign-in link` and the body to the contents of `packages/db/supabase/templates/magic_link.html`. Its link goes to `/auth/confirm` with a token hash, so it works in any browser or device; the page asks the moderator to press Sign in, so mail scanners that open links cannot use the one-time token up. Supabase's default template sends a PKCE link to `/auth/callback`, which only works in the browser that asked for it. Check that **Site URL** (Authentication, URL Configuration) is the site's public origin, since the link is built from it.
+4. Database, Backups: turn on the backups your plan offers. The scheduled dump in section 4 is the second copy.
 
 ## 2. Resend
 
