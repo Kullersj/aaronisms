@@ -22,7 +22,7 @@ export function SpeakerList({ speakers, showRank }: SpeakerListProps) {
             >
               <span className="text-lg font-medium">
                 {showRank && (
-                  <span className="text-muted-foreground mr-2 tabular-nums">#{speaker.rank}</span>
+                  <span className="text-muted-foreground mr-1 tabular-nums">#{speaker.rank} </span>
                 )}
                 {speaker.name}
               </span>

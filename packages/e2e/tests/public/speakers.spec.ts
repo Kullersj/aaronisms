@@ -29,7 +29,7 @@ test.describe('speakers', () => {
     const speakers = new SpeakerPage(page);
     await expect(speakers.sortLink('By points')).toHaveAttribute('aria-current', 'true');
     await expect(speakers.indexLink(testAaron.name)).toContainText(
-      `#1${testAaron.name}${testAaron.points} points`,
+      `#1 ${testAaron.name}${testAaron.points} points`,
     );
     await expect(speakers.indexLink(sam.name)).toContainText(`${sam.points} points`);
     await expect(speakers.indexLink(pat.name)).toContainText(`${pat.points} points`);
@@ -52,8 +52,10 @@ test.describe('speakers', () => {
     await expect(speakers.standing).toHaveText(
       new RegExp(`^${pat.points} points, #\\d+ of \\d+\\. \\d+ more to pass .+\\.$`),
     );
+    const ahead = await speakers.standing.getByRole('link').innerText();
     await speakers.standing.getByRole('link').click();
-    await expect(page).toHaveURL(/\/speakers\/[a-z0-9-]+$/);
+    await expect(page).not.toHaveURL(new RegExp(`/speakers/${pat.slug}$`));
+    await expect(speakers.heading).toHaveText(ahead);
     await expect(speakers.standing).toBeVisible();
   });
 
