@@ -15,10 +15,13 @@ export async function resolveSpeakerIds(
   if (names.size === 0) return new Map();
 
   const rows = [...names].map(([slug, name]) => ({ slug, name }));
-  // An existing speaker with the same slug wins.
-  const insert = await client
-    .from('speakers')
-    .upsert(rows, { onConflict: 'slug', ignoreDuplicates: true });
+  // An existing speaker with the same slug wins. Two submissions adding the same new speaker at once
+  // can still trip the unique name (ON CONFLICT only waits on the slug index), so retry once: by
+  // then the other row is committed and the slug conflict ignores it.
+  const upsert = () =>
+    client.from('speakers').upsert(rows, { onConflict: 'slug', ignoreDuplicates: true });
+  let insert = await upsert();
+  if (insert.error?.code === '23505') insert = await upsert();
   if (insert.error) throw new Error(`Could not save speakers: ${insert.error.message}`);
 
   const found = await client
