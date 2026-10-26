@@ -107,8 +107,8 @@ describe('row-level security (anon)', () => {
   });
 
   it('cannot write speaker points', async () => {
-    const insert = await anon.from('speaker_points').insert({ speaker_id: ids.speaker, points: 1 });
-    expect(insert.error).not.toBeNull();
+    const remove = await anon.from('speaker_points').delete().eq('speaker_id', ids.speaker);
+    expect(remove.error).not.toBeNull();
   });
 
   it('cannot read private entry columns', async () => {
