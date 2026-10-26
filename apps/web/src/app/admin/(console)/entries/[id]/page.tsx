@@ -24,6 +24,7 @@ export default async function AdminEntryPage({ params }: PageProps) {
         status={entry.status}
         imageUrl={await reviewPhotoUrl(entry.imagePath)}
         imageAlt={entry.imageAlt}
+        submittedBy={entry.submittedBy}
         speakers={await getSpeakerNames()}
       />
       {entry.status === 'deleted' ? null : (

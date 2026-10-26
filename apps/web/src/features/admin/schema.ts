@@ -9,6 +9,8 @@ export const adminEntrySchema = z.object({
   /** The status the form was loaded with; the save is refused if the entry has moved on since. */
   expectedStatus: entryStatusSchema,
   imageAlt: z.string().trim().max(300),
+  /** Who submitted it; matching a speaker's name earns them submitter points. Blank for none. */
+  submittedBy: z.string().trim().max(80),
   removeImage: z.boolean(),
   /** For a pending entry: save the edits, or save and approve in one step. */
   intent: z.enum(['save', 'approve']),

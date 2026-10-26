@@ -197,6 +197,11 @@ isOneToOne: false
 { Args: { "q": string }; Returns: {
               "era": Database["public"]['Enums']["entry_era"],"id": string,"image_alt": string,"image_path": string,"published_at": string,"rank": number,"said_on": string,"slug": string
             }[]
+                           },
+"speaker_points":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "entry_count": number,"line_count": number,"points": number,"speaker_id": string,"submitted_count": number
+            }[]
                            }
           }
           Enums: {

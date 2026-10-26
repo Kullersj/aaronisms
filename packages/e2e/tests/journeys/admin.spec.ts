@@ -9,6 +9,7 @@ import { test, expect } from '../../fixtures/test';
 import { FeedPage } from '../../pages/FeedPage';
 import { AdminPage } from '../../pages/AdminPage';
 import { ModeratePage } from '../../pages/ModeratePage';
+import { SpeakerPage } from '../../pages/SpeakerPage';
 import { SubmitPage } from '../../pages/SubmitPage';
 
 const [first, second] = moderators();
@@ -154,6 +155,27 @@ test.describe('admin, signed in as the default moderator', () => {
     await admin.save.click();
     // The first "Saved." toast may still be showing, so the visitor's feed is the proof here.
     await expect.poll(() => new FeedPage(visitor).shows(`Edited ${marker}`)).toBe(false);
+  });
+
+  test('corrects the submitter to a speaker, who then earns submitter points', async ({
+    page,
+    marker,
+  }) => {
+    const speaker = `${marker} Speaker`;
+    await submitPending(page, marker, `Submitter points ${marker}`);
+    const admin = new AdminPage(page);
+    await admin.goto();
+    await admin.queueItem(marker).getByRole('link', { name: 'Edit before approving' }).click();
+    await expect(admin.submittedBy).toHaveValue(marker);
+    await admin.submittedBy.fill(speaker);
+    await admin.saveAndApprove.click();
+    await expect(page.getByText('Saved and approved.')).toBeVisible();
+
+    // One Aaronism, one line, and submitted under their own name: 10 + 1 + 25.
+    const speakers = new SpeakerPage(page);
+    await page.goto('/speakers');
+    await speakers.indexLink(speaker).click();
+    await expect(speakers.standing).toHaveText(/^36 points, /);
   });
 
   test('finds a published entry, deletes it softly and restores it', async ({ page, marker }) => {

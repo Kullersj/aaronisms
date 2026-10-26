@@ -96,7 +96,7 @@ export async function saveEntry(entryId: string, formData: FormData): Promise<Sa
   const admin = await requireAdmin();
   const parsed = adminEntrySchema.safeParse(jsonField(formData));
   if (!parsed.success) return { ok: false, message: 'Please check the form and try again.' };
-  const { edit, status, expectedStatus, imageAlt, removeImage, intent } = parsed.data;
+  const { edit, status, expectedStatus, imageAlt, submittedBy, removeImage, intent } = parsed.data;
 
   const current = await getEntryForReview(entryId);
   if (!current) return { ok: false, message: 'That entry no longer exists.' };
@@ -115,17 +115,26 @@ export async function saveEntry(entryId: string, formData: FormData): Promise<Sa
     if (!uploaded) return { ok: false, message: 'That file is not a supported image.' };
     imagePath = uploaded;
   }
-  // Puts the photo columns back and drops the new file; used when the save fails after the photo.
+  // Puts the photo and submitter columns back and drops the new file; used when the save fails
+  // after them.
   const undoImage = async () => {
     await client
       .from('entries')
-      .update({ image_path: current.imagePath, image_alt: current.imageAlt })
+      .update({
+        image_path: current.imagePath,
+        image_alt: current.imageAlt,
+        submitted_by: current.submittedBy,
+      })
       .eq('id', entryId);
     await removePhoto(uploaded);
   };
   const imageUpdate = await client
     .from('entries')
-    .update({ image_path: imagePath, image_alt: imageAlt || null })
+    .update({
+      image_path: imagePath,
+      image_alt: imageAlt || null,
+      submitted_by: submittedBy || null,
+    })
     .eq('id', entryId);
   if (imageUpdate.error) {
     await removePhoto(uploaded);

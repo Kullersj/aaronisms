@@ -54,10 +54,17 @@ const ID = '10000000-0000-4000-8000-000000000001';
 const PNG = await sharp({ create: { width: 2, height: 2, channels: 3, background: '#fff' } })
   .png()
   .toBuffer();
-const OLD_PHOTO = { image_path: 'entries/old.png', image_alt: 'old alt' };
+const OLD_PHOTO = { image_path: 'entries/old.png', image_alt: 'old alt', submitted_by: 'Pat' };
 
 function entry(status: string) {
-  return { id: ID, status, imagePath: 'entries/old.png', imageAlt: 'old alt', publishedAt: null };
+  return {
+    id: ID,
+    status,
+    imagePath: 'entries/old.png',
+    imageAlt: 'old alt',
+    submittedBy: 'Pat',
+    publishedAt: null,
+  };
 }
 
 function form(overrides: Record<string, unknown> = {}, withPhoto = false) {
@@ -69,6 +76,7 @@ function form(overrides: Record<string, unknown> = {}, withPhoto = false) {
       status: 'pending',
       expectedStatus: 'pending',
       imageAlt: 'new alt',
+      submittedBy: 'Pat Example',
       removeImage: false,
       intent: 'save',
       ...overrides,
@@ -156,9 +164,19 @@ describe('saveEntry', () => {
     expect(calls).toContainEqual({
       table: 'entries',
       op: 'update',
-      values: { image_path: null, image_alt: 'new alt' },
+      values: { image_path: null, image_alt: 'new alt', submitted_by: 'Pat Example' },
     });
     expect(removed).toEqual([['entries/old.png']]);
+  });
+
+  it('clears the submitter when the admin blanks it', async () => {
+    const result = await saveEntry(ID, form({ submittedBy: '  ' }));
+    expect(result).toEqual({ ok: true });
+    expect(calls).toContainEqual({
+      table: 'entries',
+      op: 'update',
+      values: expect.objectContaining({ submitted_by: null }),
+    });
   });
 
   it('keeps the old photo when the save fails', async () => {

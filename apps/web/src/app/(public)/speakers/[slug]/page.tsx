@@ -4,7 +4,8 @@ import { notFound } from 'next/navigation';
 import { isSlug } from '@aaronisms/db/slug';
 import { ArrowLeft } from 'lucide-react';
 import { EntryCard } from '@/features/entries/components/EntryCard';
-import { getSpeakerPage } from '@/features/speakers/queries';
+import { nextToPass, rankSpeakers } from '@/features/speakers/points';
+import { getPublicSpeakers, getSpeakerPage } from '@/features/speakers/queries';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,9 @@ export default async function SpeakerPage({ params }: PageProps) {
   const page = isSlug(slug) ? await getSpeakerPage(slug) : null;
   if (!page) notFound();
   const { speaker, entries } = page;
+  const ranked = rankSpeakers(await getPublicSpeakers());
+  const standing = ranked.find((other) => other.id === speaker.id);
+  const next = nextToPass(ranked, speaker.id);
 
   return (
     <div className="flex flex-col gap-4">
@@ -41,6 +45,28 @@ export default async function SpeakerPage({ params }: PageProps) {
           {speaker.lineCount} {speaker.lineCount === 1 ? 'line' : 'lines'} in {entries.length}{' '}
           {entries.length === 1 ? 'Aaronism' : 'Aaronisms'}
         </p>
+        {standing && (
+          <p className="mt-1">
+            <strong className="font-semibold">
+              {standing.points} {standing.points === 1 ? 'point' : 'points'}
+            </strong>
+            , #{standing.rank} of {ranked.length}.{' '}
+            {next ? (
+              <>
+                {next.pointsNeeded} more to pass{' '}
+                <Link
+                  href={`/speakers/${next.speaker.slug}`}
+                  className="focus-visible:ring-ring rounded-sm underline underline-offset-4 focus-visible:ring-2 focus-visible:outline-none"
+                >
+                  {next.speaker.name}
+                </Link>
+                .
+              </>
+            ) : (
+              'Top of the leaderboard.'
+            )}
+          </p>
+        )}
       </div>
       {entries.map((entry) => (
         <EntryCard key={entry.id} entry={entry} headingLevel="h2" />

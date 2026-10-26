@@ -48,6 +48,8 @@ beforeAll(async () => {
     Object.values(entries).map((e) => ({
       ...e,
       published_at: e.status === 'published' ? '2031-01-01T00:00:00Z' : null,
+      // Slugs to speaker B's slug, accent and all, so B earns submitter points for the published ones.
+      submitted_by: e === entries.second || e === entries.pending ? `${PREFIX} Bêta` : null,
     })),
   );
   expect(rows.error).toBeNull();
@@ -109,9 +111,11 @@ describe('speaker queries (real database, anon role)', () => {
     const mine = speakers
       .filter((s) => s.slug.startsWith(PREFIX))
       .sort((a, b) => a.slug.localeCompare(b.slug));
-    expect(mine.map((s) => [s.slug, s.lineCount])).toEqual([
-      [speakerA.slug, 2], // the line on the pending entry is not counted
-      [speakerB.slug, 1],
+    expect(mine.map((s) => [s.slug, s.lineCount, s.points])).toEqual([
+      // Nothing pending counts. A: 2 entries, 2 lines (20 + 2). B: 1 entry, 1 line, and submitted
+      // 1 published entry under their name (10 + 1 + 25).
+      [speakerA.slug, 2, 22],
+      [speakerB.slug, 1, 36],
     ]);
   });
 

@@ -6,6 +6,7 @@ export class AdminPage extends EntryForm {
   readonly nav: Locator;
   readonly signOut: Locator;
   readonly status: Locator;
+  readonly submittedBy: Locator;
   readonly save: Locator;
 
   constructor(page: Page) {
@@ -13,6 +14,7 @@ export class AdminPage extends EntryForm {
     this.nav = page.getByRole('navigation', { name: 'Admin' });
     this.signOut = page.getByRole('button', { name: 'Sign out' });
     this.status = page.getByLabel('Status');
+    this.submittedBy = page.getByLabel('Submitted by');
     this.save = page.getByRole('button', { name: 'Save', exact: true });
   }
 
