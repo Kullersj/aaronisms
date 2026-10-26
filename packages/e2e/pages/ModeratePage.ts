@@ -4,7 +4,6 @@ import { EntryForm } from './EntryForm';
 /** A moderator's token page, opened from a button in the notification email. */
 export class ModeratePage extends EntryForm {
   readonly approve: Locator;
-  readonly rejectSummary: Locator;
   readonly reason: Locator;
   readonly reject: Locator;
   readonly edit: Locator;
@@ -13,7 +12,6 @@ export class ModeratePage extends EntryForm {
   constructor(page: Page) {
     super(page);
     this.approve = page.getByRole('button', { name: 'Approve' });
-    this.rejectSummary = page.getByText('Reject…');
     this.reason = page.getByLabel('Reason (optional)');
     this.reject = page.getByRole('button', { name: 'Reject', exact: true });
     this.edit = page.getByRole('link', { name: 'Edit before approving' });

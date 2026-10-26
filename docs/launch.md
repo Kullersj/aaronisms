@@ -25,7 +25,7 @@ Settings, Secrets and variables, Actions. Both workflows skip with a warning unt
 
 - `SUPABASE_URL` and `SUPABASE_ANON_KEY` (the publishable key, or the legacy anon key; never a secret or service role key) for the keep-alive.
 - `SUPABASE_DB_URL` for the daily backup (use the Session pooler string, since GitHub runners have no IPv6).
-- `BACKUP_PASSPHRASE`, a long random passphrase that encrypts the backup (the repository is public, so its artifacts are downloadable). Keep a copy outside GitHub, in a password manager: without it the backups cannot be read.
+- `BACKUP_PASSPHRASE`, a long random passphrase of at least 32 characters that encrypts the backup (the job fails without it; the repository is public, so its artifacts are downloadable). Keep a copy outside GitHub, in a password manager: without it the backups cannot be read.
 
 Run each workflow once from the Actions tab (Run workflow) to confirm it is green.
 

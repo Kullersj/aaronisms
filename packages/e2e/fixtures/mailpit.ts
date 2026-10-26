@@ -1,13 +1,9 @@
 import { expect } from '@playwright/test';
-import { MAILPIT_URL } from './env';
-
-type MailpitSummary = { ID: string; Created: string };
+import { getMessage, searchMessages, type MailpitSummary } from '@aaronisms/db/testing/mailpit';
 
 /** Newest first. Only the magic-link subject counts, so other mail to the address is never mistaken for it. */
 async function signInEmails(to: string): Promise<MailpitSummary[]> {
-  const query = encodeURIComponent(`to:${to} subject:"sign-in link"`);
-  const search = await fetch(`${MAILPIT_URL}/api/v1/search?query=${query}`);
-  return ((await search.json()) as { messages: MailpitSummary[] }).messages;
+  return (await searchMessages(`to:${to} subject:"sign-in link"`)).messages;
 }
 
 /**
@@ -27,11 +23,7 @@ export async function waitForMagicLink(to: string, known: Set<string>): Promise<
       async () => {
         const latest = (await signInEmails(to)).find((message) => !known.has(message.ID));
         if (!latest) return undefined;
-        const message = (await (
-          await fetch(`${MAILPIT_URL}/api/v1/message/${latest.ID}`)
-        ).json()) as {
-          Text: string;
-        };
+        const message = await getMessage(latest.ID);
         link = /https?:\/\/\S+\/auth\/confirm\?\S+/.exec(message.Text)?.[0];
         return link;
       },
@@ -46,10 +38,8 @@ export async function waitForMagicLink(to: string, known: Set<string>): Promise<
  * magic-link subject counts, so moderation emails to the same address cannot disturb it.
  */
 export async function countSignInEmailsTo(to: string): Promise<number> {
-  const query = encodeURIComponent(`to:${to} subject:"sign-in link"`);
-  const search = await fetch(`${MAILPIT_URL}/api/v1/search?query=${query}`);
   // The total, not the length of the first page of results, which Mailpit caps.
-  return ((await search.json()) as { messages_count: number }).messages_count;
+  return (await searchMessages(`to:${to} subject:"sign-in link"`)).total;
 }
 
 export type ReceivedEmail = {
@@ -67,18 +57,11 @@ export async function waitForEmail(to: string, submitter: string): Promise<Recei
   await expect
     .poll(
       async () => {
-        const query = encodeURIComponent(`to:${to} subject:"${submitter}"`);
-        const search = await fetch(`${MAILPIT_URL}/api/v1/search?query=${query}`);
-        const { messages } = (await search.json()) as { messages: MailpitSummary[] };
+        // The subject is neutral; the submitter's name is in the body.
+        const { messages } = await searchMessages(`to:${to} "${submitter}"`);
         const first = messages[0];
         if (!first) return false;
-        const message = (await (
-          await fetch(`${MAILPIT_URL}/api/v1/message/${first.ID}`)
-        ).json()) as {
-          Subject: string;
-          HTML: string;
-          ReplyTo: { Address: string }[];
-        };
+        const message = await getMessage(first.ID);
         found = {
           to,
           replyTo: message.ReplyTo[0]?.Address,

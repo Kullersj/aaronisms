@@ -24,14 +24,14 @@ test('a card links to its permalink page, and back to the feed', async ({ page }
 test('each entry that shares a date has its own permalink', async ({ page }) => {
   const feed = new FeedPage(page);
   await feed.goto();
-  await feed.permalinkFor(published.sandwich.date, 0).click();
-  await expect(page).toHaveURL(new RegExp(`/a/${published.sandwich.slug}$`));
-  await expect(page.getByText(published.sandwich.text)).toBeVisible();
-  await page.goBack();
-  await feed.permalinkFor(published.sandwich.date, 1).click();
+  await feed.permalinkFor(published.pumpkin.date, 0).click();
   await expect(page).toHaveURL(new RegExp(`/a/${published.pumpkin.slug}$`));
   await expect(page.getByText(published.pumpkin.text)).toBeVisible();
-  await expect(page.getByText(published.sandwich.text)).toHaveCount(0);
+  await page.goBack();
+  await feed.permalinkFor(published.sandwich.date, 1).click();
+  await expect(page).toHaveURL(new RegExp(`/a/${published.sandwich.slug}$`));
+  await expect(page.getByText(published.sandwich.text)).toBeVisible();
+  await expect(page.getByText(published.pumpkin.text)).toHaveCount(0);
 });
 
 test('Copy link puts the permalink on the clipboard and says so', async ({ page, context }) => {

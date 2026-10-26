@@ -1,5 +1,6 @@
 import 'server-only';
 import type { Entry, EntryStatus } from '@aaronisms/db/schemas';
+import { ENTRY_COLUMNS } from '@/features/entries/queries';
 import { toEntry, type EntryRow } from '@/features/entries/mappers';
 import { compareEntries } from '@/features/entries/utils';
 import { getServerEnv } from '@/lib/env';
@@ -26,8 +27,7 @@ export type TokenView =
   | { state: 'invalid' };
 
 // Includes `submitted_by`, which is private: read it with the service role only, never publicly.
-const REVIEW_COLUMNS =
-  'id, slug, said_on, era, status, image_path, image_alt, no_preview, submitted_by, published_at, created_at, lines:entry_lines(id, position, kind, speaker_label, text, speaker:speakers(id, name, slug))';
+const REVIEW_COLUMNS = `${ENTRY_COLUMNS}, submitted_by` as const;
 
 /** One entry by id for moderators, whatever its status. Service role: callers must authorise. */
 export async function getEntryForReview(id: string): Promise<ReviewEntry | null> {

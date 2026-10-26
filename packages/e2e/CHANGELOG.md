@@ -1,5 +1,25 @@
 # @aaronisms/e2e
 
+## 0.4.8
+
+### Patch Changes
+
+- e952420: Speaker points: speakers earn 10 points per published Aaronism they are in, 1 per line they say, and 25 per published Aaronism they submitted under their own name. The Speakers page ranks them by points (with an A to Z toggle), and each speaker page shows their points, rank and who they need to pass next. Admins can correct an entry's submitter on its edit page.
+
+## 0.4.7
+
+### Patch Changes
+
+- fd735d1: Submitted photos now go to a private bucket and are copied to the public one, under a random name, only when an entry is approved. Photos are re-encoded to strip EXIF metadata and capped in size, signed URLs are used in the moderation email and review pages, and removed, replaced or deleted entries no longer leave their photo public.
+- 2041c85: The database tests and the destructive e2e journeys now refuse to run against a non-local Supabase URL unless `ALLOW_REMOTE_SUPABASE_TESTS=1` is set. Turbo's build cache now sees `.env*` files and typecheck/lint depend on their workspace dependencies, web typecheck uses `next typegen`, and the env and share-image docs match the code.
+- 5fb5d63: Dedupe the web form helpers, admin message codes, test helpers and shared dependencies, and remove dead code. The moderator email subject is now neutral (no submitter name), submitter text in it is stripped of control characters, and the rate limiter buckets IPv6 addresses by /64.
+
+## 0.4.6
+
+### Patch Changes
+
+- 756ddf6: List the newest posts first, including among entries that share a date
+
 ## 0.4.5
 
 ### Patch Changes

@@ -35,7 +35,6 @@ const usesLocalSupabase = remotePatterns.some((p) =>
 );
 
 const nextConfig: NextConfig = {
-  transpilePackages: ['@aaronisms/ui', '@aaronisms/email'],
   experimental: {
     // Submissions carry a photo of up to 5 MB, plus multipart overhead.
     serverActions: { bodySizeLimit: '6mb' },

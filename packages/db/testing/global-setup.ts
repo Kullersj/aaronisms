@@ -1,11 +1,13 @@
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertLocalSupabaseUrl } from './local-only';
 
 /**
  * Vitest globalSetup shared by every package that tests against the real local Supabase stack
  * (Postgres + PostgREST + storage in Docker). Uses SUPABASE_URL / SUPABASE_ANON_KEY /
- * SUPABASE_SERVICE_ROLE_KEY when they are already set; otherwise reads them from
+ * SUPABASE_SERVICE_ROLE_KEY when they are already set (and the URL is local, or
+ * ALLOW_REMOTE_SUPABASE_TESTS=1 says otherwise); otherwise reads them from
  * `supabase status`, starting the stack first if it is not running. The stack is left running
  * afterwards so reruns are fast.
  */
@@ -42,7 +44,10 @@ function readStatus(): Record<string, string> | null {
 }
 
 export default function setup() {
-  if (Object.values(KEYS).every((name) => process.env[name])) return;
+  if (Object.values(KEYS).every((name) => process.env[name])) {
+    assertLocalSupabaseUrl(process.env.SUPABASE_URL as string);
+    return;
+  }
 
   if (spawnSync('docker', ['info'], { stdio: 'ignore' }).status !== 0) {
     throw new Error(`Docker is not available. ${DOCKER_HINT}`);

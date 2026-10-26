@@ -1,6 +1,6 @@
 {
   "name": "@aaronisms/e2e",
-  "version": "0.4.5",
+  "version": "0.4.8",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,7 +12,7 @@
     "@aaronisms/config": "workspace:*",
     "@aaronisms/db": "workspace:*",
     "@playwright/test": "catalog:",
-    "@supabase/supabase-js": "^2.118.0",
+    "@supabase/supabase-js": "catalog:",
     "@types/node": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:"

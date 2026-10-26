@@ -1,17 +1,17 @@
-import { slugForEntry } from '@aaronisms/db/slug';
-import { isGroupLabel, type Era, type LineKind, type ParsedEntry } from './parse';
+import { slugForEntry, slugForSpeaker } from '@aaronisms/db/slug';
+import { isGroupLabel, splitAside, type Era, type LineKind, type ParsedEntry } from './parse';
 
 /**
- * Spellings that should become one speaker. Keys are lowercase with punctuation and spaces
- * removed ("A-Rob", "a rob" and "AROB" all become "arob"). Add new variants here; any label
- * not listed keeps the spelling it was first seen with.
+ * Spellings that should become one speaker. Keys are speaker slugs, the same identity the
+ * database and the web app use ("A-Rob" and "a rob" both slug to "a-rob"; "Zoë" and "Zoe" to
+ * "zoe"). Add new variants here; any label not listed keeps the spelling it was first seen with.
  */
 const SPEAKER_ALIASES: Record<string, string> = {
   arob: 'Arob',
+  'a-rob': 'Arob',
   kfed: 'KFed',
+  'k-fed': 'KFed',
 };
-
-const aliasKey = (label: string) => label.toLowerCase().replace(/[^a-z0-9]/g, '');
 
 export type PlannedLine = {
   position: number;
@@ -38,8 +38,10 @@ export type PlannedEntry = {
 export function createSpeakerRegistry() {
   const names = new Map<string, string>();
   return {
-    canonicalName(label: string): string {
-      const key = aliasKey(label);
+    /** One spelling per speaker slug, or null when the label has no slug (for example "李"). */
+    canonicalName(label: string): string | null {
+      const key = slugForSpeaker(label);
+      if (!key) return null;
       const name = SPEAKER_ALIASES[key] ?? names.get(key) ?? label.trim();
       names.set(key, name);
       return name;
@@ -72,14 +74,18 @@ export function planEntries(
         era,
         imageSrc: entry.imageUrls[0] ?? null,
         lines: entry.lines.map((line, index) => {
+          // "Pat (whispering)" is Pat with an aside, which stays in front of the text.
+          const { name, aside } = splitAside(line.speakerLabel ?? '');
           const single = line.speakerLabel !== null && !isGroupLabel(line.speakerLabel);
+          const speakerName = single ? speakers.canonicalName(name) : null;
+          // A name with no slug cannot be a speaker row, so it stays a plain label.
+          const asLabel = line.speakerLabel !== null && speakerName === null;
           return {
             position: index + 1,
             kind: line.kind,
-            speakerName:
-              single && line.speakerLabel ? speakers.canonicalName(line.speakerLabel) : null,
-            speakerLabel: single ? null : line.speakerLabel,
-            text: line.text,
+            speakerName,
+            speakerLabel: asLabel ? line.speakerLabel : null,
+            text: speakerName && aside ? `(${aside}) ${line.text}` : line.text,
           };
         }),
       };

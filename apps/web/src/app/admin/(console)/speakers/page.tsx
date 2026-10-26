@@ -1,3 +1,5 @@
+import { AdminNotice } from '@/features/admin/components/AdminNotice';
+import { adminMessage } from '@/features/admin/messages';
 import { SpeakerRow } from '@/features/speakers/components/SpeakerRow';
 import { getSpeakerSummaries } from '@/features/speakers/queries';
 import { requireAdmin } from '@/lib/auth';
@@ -9,11 +11,7 @@ export default async function AdminSpeakersPage({ searchParams }: PageProps) {
   const [{ message }, speakers] = await Promise.all([searchParams, getSpeakerSummaries()]);
   return (
     <div className="flex flex-col gap-4">
-      {message ? (
-        <p role="status" className="bg-card border-border rounded-md border p-3 text-sm">
-          {message}
-        </p>
-      ) : null}
+      <AdminNotice message={adminMessage(message)} />
       <ul className="flex flex-col gap-3">
         {speakers.map((speaker) => (
           <SpeakerRow

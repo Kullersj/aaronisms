@@ -6,7 +6,7 @@ import { getEntryForReview } from '@/features/moderation/queries';
 import { entryToEditValues } from '@/features/submissions/lines';
 import { getSpeakerNames } from '@/features/submissions/queries';
 import { requireAdmin } from '@/lib/auth';
-import { getImageUrl } from '@/lib/supabase/storage';
+import { reviewPhotoUrl } from '@/lib/supabase/photos';
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -22,8 +22,9 @@ export default async function AdminEntryPage({ params }: PageProps) {
         entryId={entry.id}
         initial={entryToEditValues(entry)}
         status={entry.status}
-        imageUrl={entry.imagePath ? getImageUrl(entry.imagePath) : null}
+        imageUrl={await reviewPhotoUrl(entry.imagePath)}
         imageAlt={entry.imageAlt}
+        submittedBy={entry.submittedBy}
         speakers={await getSpeakerNames()}
       />
       {entry.status === 'deleted' ? null : (

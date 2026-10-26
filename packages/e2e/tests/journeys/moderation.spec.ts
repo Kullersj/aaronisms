@@ -27,14 +27,6 @@ async function submitAndCollectLinks(page: Page, marker: string, text: string) {
   };
 }
 
-/** Whether a visitor looking at the feed can see `text`. */
-async function feedShows(page: Page, text: string) {
-  const feed = new FeedPage(page);
-  await feed.goto();
-  await expect(feed.allAaronisms).toBeAttached();
-  return (await page.getByText(text).count()) > 0;
-}
-
 test.describe('moderation by email link', () => {
   test('emails every moderator, then approving from the email publishes the entry', async ({
     page,
@@ -45,7 +37,8 @@ test.describe('moderation by email link', () => {
     const links = await submitAndCollectLinks(page, marker, quote);
 
     // The email names the submitter, quotes the entry and replies to the default moderator.
-    expect(links.emailSecond.subject).toBe(`New Aaronism submitted by ${marker}`);
+    expect(links.emailSecond.subject).toMatch(/^New submission/);
+    expect(links.emailSecond.subject).not.toContain(marker);
     expect(links.emailSecond.replyTo).toBe(first);
     expect(links.emailSecond.html).toContain(quote);
     expect(links.emailSecond.html).toContain('Edit before approving');
@@ -64,14 +57,14 @@ test.describe('moderation by email link', () => {
     // Reloading, which a scanner or an impatient click might do, still changes nothing.
     await page.reload();
     await expect(moderate.approve).toBeVisible();
-    expect(await feedShows(page, quote)).toBe(false);
+    expect(await new FeedPage(page).shows(quote)).toBe(false);
 
     await moderate.goto(links.second.approve);
     await moderate.approve.click();
     await expect(moderate.notice('Approved')).toBeVisible();
 
     // The entry is on the feed straight away.
-    expect(await feedShows(page, quote)).toBe(true);
+    expect(await new FeedPage(page).shows(quote)).toBe(true);
 
     // The other moderator sees who decided, with nothing left to click.
     await moderate.goto(links.first.approve);
@@ -95,7 +88,7 @@ test.describe('moderation by email link', () => {
     await moderate.reject.click();
     await expect(moderate.notice('Rejected')).toBeVisible();
 
-    expect(await feedShows(page, quote)).toBe(false);
+    expect(await new FeedPage(page).shows(quote)).toBe(false);
     const search = new SearchPage(page);
     await search.search(quote);
     await expect(search.noMatches(quote)).toBeVisible();
@@ -152,7 +145,7 @@ test.describe('moderation by email link', () => {
     // Still waiting for review: the link still offers the decision, and the feed lacks it.
     await moderate.goto(links.first.approve);
     await expect(moderate.approve).toBeVisible();
-    expect(await feedShows(page, quote)).toBe(false);
+    expect(await new FeedPage(page).shows(quote)).toBe(false);
   });
 
   test('an expired link says so and changes nothing', async ({ page, marker }) => {
@@ -169,7 +162,7 @@ test.describe('moderation by email link', () => {
     await moderate.goto(links.first.approve);
     await expect(moderate.notice('This link has expired')).toBeVisible();
     await expect(moderate.approve).toHaveCount(0);
-    expect(await feedShows(page, quote)).toBe(false);
+    expect(await new FeedPage(page).shows(quote)).toBe(false);
   });
 
   test('a made-up link is not valid', async ({ page }) => {
@@ -195,19 +188,30 @@ test.describe('moderation by email link', () => {
     await Promise.all([mine.goto(links.first.approve), theirs.goto(links.second.reject)]);
     await Promise.all([mine.approve.click(), theirs.reject.click()]);
 
-    const outcome = /^(Approved|Rejected)$/;
-    const decision = page.getByRole('heading', { level: 2, name: outcome });
-    await expect(decision).toBeVisible();
-    await expect(otherPage.getByRole('heading', { level: 2, name: outcome })).toBeVisible();
-    // Exactly one decision stands, and both moderators are told the same thing.
-    const winner = await decision.textContent();
-    await expect(otherPage.getByRole('heading', { level: 2, name: winner ?? '' })).toBeVisible();
+    // Exactly one decision stands. Its moderator is told they decided; the other is told it was
+    // already decided, not that their own click worked.
+    const heading = (p: Page) => p.getByRole('heading', { level: 2 });
+    await expect(heading(page)).toHaveText(
+      /^(Approved|Rejected|Already approved|Already rejected)$/,
+    );
+    await expect(heading(otherPage)).toHaveText(
+      /^(Approved|Rejected|Already approved|Already rejected)$/,
+    );
+    const mineText = (await heading(page).textContent()) ?? '';
+    const winner = /^Already/.test(mineText) ? 'Rejected' : mineText;
+    const pair =
+      winner === 'Approved' ? ['Approved', 'Already approved'] : ['Rejected', 'Already rejected'];
+    const [winnerPage, loserPage] = /^Already/.test(mineText)
+      ? [otherPage, page]
+      : [page, otherPage];
+    await expect(heading(winnerPage)).toHaveText(pair[0] ?? '');
+    await expect(heading(loserPage)).toHaveText(pair[1] ?? '');
     // The standing decision carries the name of the moderator who made it.
     await mine.goto(links.first.approve);
     await expect(
       page.getByText(winner === 'Approved' ? `Approved by ${first}` : `Rejected by ${second}`),
     ).toBeVisible();
-    expect(await feedShows(page, quote)).toBe(winner === 'Approved');
+    expect(await new FeedPage(page).shows(quote)).toBe(winner === 'Approved');
     await otherContext.close();
   });
 });

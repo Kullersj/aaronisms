@@ -1,5 +1,49 @@
 # @aaronisms/web
 
+## 0.8.0
+
+### Minor Changes
+
+- e952420: Speaker points: speakers earn 10 points per published Aaronism they are in, 1 per line they say, and 25 per published Aaronism they submitted under their own name. The Speakers page ranks them by points (with an A to Z toggle), and each speaker page shows their points, rank and who they need to pass next. Admins can correct an entry's submitter on its edit page.
+
+### Patch Changes
+
+- 5935d79: Two submissions adding the same new speaker at the same moment no longer fail one of them with a duplicate-name error.
+- Updated dependencies [e952420]
+  - @aaronisms/db@0.5.0
+  - @aaronisms/email@0.2.1
+
+## 0.7.3
+
+### Patch Changes
+
+- 9e6a000: Admin edits no longer unpublish an entry someone else just decided, keep imported group labels, speakerless lines, setup lines and long text intact, and report errors. Moderators and admins are told when their decision did not apply, and the admin form no longer re-uploads the same photo on every save.
+- 480b31a: Harden the CI workflows: pin actions to commit SHAs, read-only tokens, a safer release push, and backups that leave out rate-limit and moderation-token data.
+- fd735d1: Submitted photos now go to a private bucket and are copied to the public one, under a random name, only when an entry is approved. Photos are re-encoded to strip EXIF metadata and capped in size, signed URLs are used in the moderation email and review pages, and removed, replaced or deleted entries no longer leave their photo public.
+- 2041c85: The database tests and the destructive e2e journeys now refuse to run against a non-local Supabase URL unless `ALLOW_REMOTE_SUPABASE_TESTS=1` is set. Turbo's build cache now sees `.env*` files and typecheck/lint depend on their workspace dependencies, web typecheck uses `next typegen`, and the env and share-image docs match the code.
+- 5fb5d63: Dedupe the web form helpers, admin message codes, test helpers and shared dependencies, and remove dead code. The moderator email subject is now neutral (no submitter name), submitter text in it is stripped of control characters, and the rate limiter buckets IPv6 addresses by /64.
+- Updated dependencies [9e6a000]
+- Updated dependencies [fd735d1]
+- Updated dependencies [2041c85]
+- Updated dependencies [5fb5d63]
+  - @aaronisms/db@0.4.2
+  - @aaronisms/email@0.2.1
+  - @aaronisms/ui@0.2.1
+
+## 0.7.2
+
+### Patch Changes
+
+- 756ddf6: List the newest posts first, including among entries that share a date
+- Updated dependencies [756ddf6]
+  - @aaronisms/db@0.4.1
+
+## 0.7.1
+
+### Patch Changes
+
+- 70d1ed2: Add analytics and speed insights
+
 ## 0.7.0
 
 ### Minor Changes

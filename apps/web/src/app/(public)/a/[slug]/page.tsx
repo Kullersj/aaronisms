@@ -9,7 +9,6 @@ import { getEntryBySlug } from '@/features/entries/queries';
 import { entryDescription, formatEntryDate } from '@/features/entries/utils';
 
 export const dynamic = 'force-dynamic';
-export const dynamicParams = true;
 
 type PageProps = { params: Promise<{ slug: string }> };
 

@@ -1,6 +1,6 @@
 {
   "name": "@aaronisms/email",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "exports": {
@@ -14,6 +14,7 @@
   },
   "devDependencies": {
     "@aaronisms/config": "workspace:*",
+    "@aaronisms/db": "workspace:*",
     "@types/node": "catalog:",
     "@types/nodemailer": "^8.0.2",
     "@types/react": "catalog:",

@@ -7,8 +7,9 @@ on:
 concurrency:
   group: release-${{ github.ref }}
 
+# The push goes over SSH with the deploy key, so the workflow token only needs to read.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   version:
@@ -16,12 +17,14 @@ jobs:
     # catches older version commits pushed without the marker.
     if: "!startsWith(github.event.head_commit.message, 'chore: version packages')"
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           # The branch tip, not the triggering sha, so a queued run builds on the previous run's version commit.
           ref: main
-          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
+          # The deploy key is not available here: only the final push step gets it.
+          persist-credentials: false
       - name: Look for pending changesets
         id: pending
         run: |
@@ -30,11 +33,12 @@ jobs:
           else
             echo "No pending changesets."
           fi
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
         if: steps.pending.outputs.found
-      - run: pnpm install --frozen-lockfile
+      # No dependency install scripts: nothing that runs here needs them, and this job pushes to main.
+      - run: pnpm install --frozen-lockfile --ignore-scripts
         if: steps.pending.outputs.found
-      # Applies pending changesets (bumps versions, writes CHANGELOGs) and commits straight to main.
+      # Applies pending changesets (bumps versions, writes CHANGELOGs) for the commit below.
       - run: pnpm version-packages
         if: steps.pending.outputs.found
       - name: Commit version bumps
@@ -44,8 +48,31 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          # changeset version and prettier touch only package.json, CHANGELOG.md and .changeset;
+          # anything else prettier reformatted (or a stray file) is not committed.
+          other="$(git status --porcelain --untracked-files=all | cut -c4- \
+            | grep -Ev '(^|/)(package\.json|CHANGELOG\.md)$|^\.changeset/' || true)"
+          if [ -n "$other" ]; then
+            echo "::warning::Leaving out changes that are not version bumps:"
+            echo "$other"
+          fi
+          git add -- ':(glob)**/package.json' ':(glob)**/CHANGELOG.md' .changeset
           # [skip ci] stops every push workflow (CI, e2e, Lighthouse and this one) running again for
           # a commit that only bumps versions and CHANGELOGs of code main has already tested.
           git commit -m "chore: version packages [skip ci]"
-          git push origin HEAD:main
+      # The only step that sees the deploy key, which can push to main.
+      - name: Push the version commit
+        if: steps.pending.outputs.found
+        env:
+          RELEASE_DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
+          GH_TOKEN: ${{ github.token }} # read-only; avoids the anonymous rate limit on the API call
+        run: |
+          dir="$(mktemp -d)"
+          trap 'rm -rf "$dir"' EXIT
+          (umask 077 && printf '%s\n' "$RELEASE_DEPLOY_KEY" > "$dir/key")
+          # GitHub's published SSH host keys, fetched over TLS, so the host is verified.
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/meta \
+            | jq -r '.ssh_keys[] | "github.com " + .' > "$dir/known_hosts"
+          [ -s "$dir/known_hosts" ]
+          export GIT_SSH_COMMAND="ssh -i $dir/key -o IdentitiesOnly=yes -o UserKnownHostsFile=$dir/known_hosts -o StrictHostKeyChecking=yes"
+          git push "git@github.com:$GITHUB_REPOSITORY.git" HEAD:main

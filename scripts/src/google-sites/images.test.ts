@@ -2,7 +2,14 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { findImage, loadManifest, sniffImage, type ImageContext } from './images';
+import {
+  findImage,
+  isAllowedImageUrl,
+  isInside,
+  loadManifest,
+  sniffImage,
+  type ImageContext,
+} from './images';
 
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -95,5 +102,26 @@ describe('sniffImage', () => {
   it('identifies images by magic bytes and rejects other data', () => {
     expect(sniffImage(PNG)?.extension).toBe('png');
     expect(sniffImage(Buffer.from('<html></html>'))).toBeNull();
+  });
+});
+
+describe('image source limits', () => {
+  it('only allows https googleusercontent hosts', () => {
+    expect(isAllowedImageUrl('https://lh3.googleusercontent.com/abc')).toBe(true);
+    expect(isAllowedImageUrl('http://lh3.googleusercontent.com/abc')).toBe(false);
+    expect(isAllowedImageUrl('https://169.254.169.254/latest')).toBe(false);
+    expect(isAllowedImageUrl('https://lh3.googleusercontent.com.evil.test/a')).toBe(false);
+    expect(isAllowedImageUrl('data:image/gif;base64,R0lGOD')).toBe(false);
+  });
+
+  it('refuses local paths that leave the export folder', async () => {
+    expect(isInside('/a/b', '/a/b/c/d.png')).toBe(true);
+    expect(isInside('/a/b', '/a/other.png')).toBe(false);
+    expect(isInside('/a/b', '/a/b/../x.png')).toBe(false);
+    const outside = path.join(path.dirname(root), 'outside.png');
+    await writeFile(outside, PNG);
+    const ref = { page: 'home' as const, sectionIndex: 1, saidOn: null, order: 0 };
+    const src = `../${path.basename(outside)}`;
+    expect(await findImage({ ...ref, src }, { pageDir: root, manifest: [] })).toBeNull();
   });
 });

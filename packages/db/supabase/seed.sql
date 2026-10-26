@@ -5,13 +5,13 @@ insert into public.speakers (id, name, slug) values
   ('00000000-0000-4000-8000-000000000002', 'Pat Example', 'pat-example'),
   ('00000000-0000-4000-8000-000000000003', 'Sam Sample', 'sam-sample');
 
-insert into public.entries (id, slug, said_on, era, status, submitted_by, published_at) values
-  ('10000000-0000-4000-8000-000000000001', '2026-01-05-1', '2026-01-05', 'modern', 'published', null, '2026-01-06 12:00+00'),
-  ('10000000-0000-4000-8000-000000000002', '2026-01-05-2', '2026-01-05', 'modern', 'published', 'Pat', '2026-01-06 12:05+00'),
-  ('10000000-0000-4000-8000-000000000003', '2026-02-14-1', '2026-02-14', 'modern', 'published', null, '2026-02-15 09:00+00'),
-  ('10000000-0000-4000-8000-000000000004', 'college-1', null, 'college', 'published', null, '2026-01-06 12:10+00'),
-  ('10000000-0000-4000-8000-000000000005', '2026-03-01-1', '2026-03-01', 'modern', 'pending', 'Sam', null),
-  ('10000000-0000-4000-8000-000000000006', '2026-03-02-1', '2026-03-02', 'modern', 'rejected', 'Anonymous', null);
+insert into public.entries (id, slug, said_on, era, status, submitted_by, published_at, created_at) values
+  ('10000000-0000-4000-8000-000000000001', '2026-01-05-1', '2026-01-05', 'modern', 'published', null, '2026-01-06 12:00+00', '2026-01-06 11:00+00'),
+  ('10000000-0000-4000-8000-000000000002', '2026-01-05-2', '2026-01-05', 'modern', 'published', 'Pat', '2026-01-06 12:05+00', '2026-01-06 11:30+00'),
+  ('10000000-0000-4000-8000-000000000003', '2026-02-14-1', '2026-02-14', 'modern', 'published', null, '2026-02-15 09:00+00', '2026-02-15 08:00+00'),
+  ('10000000-0000-4000-8000-000000000004', 'college-1', null, 'college', 'published', null, '2026-01-06 12:10+00', '2026-01-06 11:00+00'),
+  ('10000000-0000-4000-8000-000000000005', '2026-03-01-1', '2026-03-01', 'modern', 'pending', 'Sam', null, '2026-03-01 10:00+00'),
+  ('10000000-0000-4000-8000-000000000006', '2026-03-02-1', '2026-03-02', 'modern', 'rejected', 'Anonymous', null, '2026-03-02 10:00+00');
 
 update public.entries set decision_note = 'Not funny enough, sorry.', reviewed_by_email = 'moderator@example.com'
 where slug = '2026-03-02-1';

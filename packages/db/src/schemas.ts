@@ -96,14 +96,27 @@ export const newSubmissionSchema = z.object({
   ),
 });
 
+/**
+ * A line of an existing entry. Looser than a submission line so imported data survives a save:
+ * long text, spoken lines with no speaker, setup lines and group labels (a `speakerLabel` that
+ * `speaker` still repeats stays a label instead of becoming a speaker).
+ */
+export const entryEditLineSchema = z.object({
+  speaker: z.string().trim().min(1, 'Who said it?').max(200).nullable(),
+  speakerLabel: z.string().max(200).nullable().optional(),
+  text: z.string().trim().min(1, 'Say something').max(10_000),
+  kind: lineKindSchema.default('line'),
+});
+
 /** An edit to an existing entry: the date (null for undated College Years entries), setup line and lines. */
 export const entryEditSchema = z.object({
   saidOn: z.iso.date().nullable(),
-  context: contextSchema,
-  lines: linesSchema,
+  context: z.string().trim().max(2000).optional(),
+  lines: z.array(entryEditLineSchema).min(1, 'Add at least one line').max(500),
 });
 
 export type NewSubmissionLine = z.infer<typeof newSubmissionLineSchema>;
+export type EntryEditLine = z.infer<typeof entryEditLineSchema>;
 export type EntryEdit = z.infer<typeof entryEditSchema>;
 /** Validated submission, with defaults applied. */
 export type NewSubmission = z.infer<typeof newSubmissionSchema>;

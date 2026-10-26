@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { SiteFooter } from '@/components/layout/SiteFooter';
 import { SiteHeader } from '@/components/layout/SiteHeader';
+import { SpeedInsights } from '@vercel/speed-insights/next';
+import { Analytics } from '@vercel/analytics/next';
 
 export default function PublicLayout({
   children,
@@ -22,6 +24,8 @@ export default function PublicLayout({
         {children}
       </main>
       <SiteFooter />
+      <SpeedInsights />
+      <Analytics />
       {modal}
     </div>
   );

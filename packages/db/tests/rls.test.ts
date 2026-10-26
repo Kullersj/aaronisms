@@ -8,6 +8,7 @@ const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const options = { auth: { persistSession: false } };
 const BUCKET = 'aaronism-images';
+const PRIVATE_BUCKET = 'aaronism-images-private';
 const PREFIX = 'rls-test';
 const WORD = 'zorblatt';
 
@@ -36,6 +37,7 @@ describe('row-level security (anon)', () => {
       status,
       published_at: status === 'published' ? '2026-01-02T00:00:00Z' : null,
       submitter_ip: '203.0.113.9',
+      submitted_by: 'RLS Test', // the speaker's slug, so it earns them submitter points
     }));
     expect((await admin.from('entries').insert(entries)).error).toBeNull();
     const lines = (['published', 'pending', 'rejected'] as const).map((status) => ({
@@ -55,6 +57,12 @@ describe('row-level security (anon)', () => {
       contentType: 'image/png',
       upsert: true,
     });
+    await admin.storage
+      .from(PRIVATE_BUCKET)
+      .upload(`private/${objectPath}`, new Uint8Array([137, 80, 78, 71]), {
+        contentType: 'image/png',
+        upsert: true,
+      });
   });
 
   afterAll(cleanup);
@@ -63,6 +71,7 @@ describe('row-level security (anon)', () => {
     await admin.from('entries').delete().like('slug', `${PREFIX}-%`);
     await admin.from('speakers').delete().eq('slug', PREFIX);
     await admin.storage.from(BUCKET).remove([objectPath]);
+    await admin.storage.from(PRIVATE_BUCKET).remove([`private/${objectPath}`]);
   }
 
   it('reads published entries and their lines', async () => {
@@ -85,6 +94,16 @@ describe('row-level security (anon)', () => {
   it('can read speakers', async () => {
     const speakers = await anon.from('speakers').select('id').eq('id', ids.speaker);
     expect(speakers.data).toHaveLength(1);
+  });
+
+  it('scores speaker points from published entries only', async () => {
+    const { data, error } = await anon.rpc('speaker_points').eq('speaker_id', ids.speaker);
+    expect(error).toBeNull();
+    // One published entry with one line, submitted under their name: 10 + 1 + 25. The pending and
+    // rejected entries, which they also spoke in and submitted, are not counted.
+    expect(data).toEqual([
+      { speaker_id: ids.speaker, entry_count: 1, line_count: 1, submitted_count: 1, points: 36 },
+    ]);
   });
 
   it('cannot read private entry columns', async () => {
@@ -200,5 +219,21 @@ describe('row-level security (anon)', () => {
   it('cannot list bucket objects', async () => {
     const listed = await anon.storage.from(BUCKET).list(PREFIX);
     expect(listed.error !== null || listed.data?.length === 0).toBe(true);
+  });
+
+  it('keeps the private bucket unreadable and unlistable for anon', async () => {
+    const path = `private/${objectPath}`;
+    expect((await anon.storage.from(PRIVATE_BUCKET).download(path)).error).not.toBeNull();
+    const publicUrl = anon.storage.from(PRIVATE_BUCKET).getPublicUrl(path).data.publicUrl;
+    expect((await fetch(publicUrl)).ok).toBe(false);
+    const listed = await anon.storage.from(PRIVATE_BUCKET).list('private');
+    expect(listed.error !== null || listed.data?.length === 0).toBe(true);
+    const upload = await anon.storage
+      .from(PRIVATE_BUCKET)
+      .upload(`private/${PREFIX}-anon.png`, new Uint8Array([1]));
+    expect(upload.error).not.toBeNull();
+    // The service role can still sign a URL for it.
+    const signed = await admin.storage.from(PRIVATE_BUCKET).createSignedUrl(path, 60);
+    expect(signed.data?.signedUrl).toBeTruthy();
   });
 });

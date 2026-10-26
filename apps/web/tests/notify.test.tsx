@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReviewEntry } from '@/features/moderation/queries';
 import { createModerationTokens } from '@/features/moderation/tokens';
 import { getServerEnv } from '@/lib/env';
-import { findMessages } from './mailpit';
+import { findMessages } from '@aaronisms/db/testing/mailpit';
 
 const submitter = `notify-${randomUUID().slice(0, 8)}`;
 
@@ -50,8 +50,10 @@ describe('notifyModerators (sending through the local Mailpit)', () => {
     await notifyModerators(entry, tokens);
 
     for (const token of tokens) {
-      const [message] = await findMessages(token.email, submitter);
-      expect(message?.Subject).toBe(`New Aaronism submitted by ${submitter}`);
+      const messages = await findMessages(token.email, 'New submission for October 18, 2026');
+      const message = messages.find((candidate) => candidate.HTML.includes(submitter));
+      expect(message?.Subject).toBe('New submission for October 18, 2026');
+      expect(message?.Subject).not.toContain(submitter);
       expect(message?.ReplyTo[0]?.Address).toBe(defaultModerator);
       expect(message?.HTML).toContain('A quote for the email');
       for (const action of ['approve', 'reject', 'edit']) {

@@ -1,5 +1,31 @@
 # @aaronisms/scripts
 
+## 0.2.5
+
+### Patch Changes
+
+- Updated dependencies [e952420]
+  - @aaronisms/db@0.5.0
+
+## 0.2.4
+
+### Patch Changes
+
+- 18d0212: Tighten the Google Sites importer (no invented speakers, abbreviated months, zero-width lines, "Pat (whispering)"), match speakers by slug like the database, write each entry atomically, require `--yes` for `--reset`, print the target project and require a service role key, and limit image downloads.
+- fd735d1: Submitted photos now go to a private bucket and are copied to the public one, under a random name, only when an entry is approved. Photos are re-encoded to strip EXIF metadata and capped in size, signed URLs are used in the moderation email and review pages, and removed, replaced or deleted entries no longer leave their photo public.
+- Updated dependencies [9e6a000]
+- Updated dependencies [fd735d1]
+- Updated dependencies [2041c85]
+- Updated dependencies [5fb5d63]
+  - @aaronisms/db@0.4.2
+
+## 0.2.3
+
+### Patch Changes
+
+- Updated dependencies [756ddf6]
+  - @aaronisms/db@0.4.1
+
 ## 0.2.2
 
 ### Patch Changes

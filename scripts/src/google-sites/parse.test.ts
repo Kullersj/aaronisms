@@ -1,6 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
-import { isGroupLabel, parseGoogleSitesPage, parseImages } from './parse';
+import {
+  isGroupLabel,
+  parseDateText,
+  parseGoogleSitesPage,
+  parseImages,
+  splitAside,
+} from './parse';
 
 const fixture = (name: string) =>
   readFileSync(new URL(`../../test/fixtures/${name}`, import.meta.url), 'utf8');
@@ -110,12 +116,40 @@ describe('dated pages', () => {
     ]);
   });
 
-  it('parses single-digit days, ordinals and abbreviated punctuation', () => {
+  it('parses single-digit days and ordinals', () => {
     const html = dated('January 5, 2020') + dated('March 2nd, 2021');
     expect(parseGoogleSitesPage(html, 'modern').map((entry) => entry.saidOn)).toEqual([
       '2020-01-05',
       '2021-03-02',
     ]);
+  });
+
+  it('accepts abbreviated month headings, with or without a period', () => {
+    const html =
+      dated('Oct. 6, 2025') +
+      dated('Sept 6, 2025') +
+      dated('Sep. 7th, 2025') +
+      dated('Mar 2, 2021');
+    expect(parseGoogleSitesPage(html, 'modern').map((entry) => entry.saidOn)).toEqual([
+      '2025-10-06',
+      '2025-09-06',
+      '2025-09-07',
+      '2021-03-02',
+    ]);
+    expect(parseDateText('Dec 25, 2024')).toBe('2024-12-25');
+  });
+
+  it('warns about a headingless section that has quotes', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const html = section('<p><b>Pat:</b> <i>hi</i></p>') + dated('May 1, 2020');
+    expect(parseGoogleSitesPage(html, 'modern').map((entry) => entry.saidOn)).toEqual([
+      '2020-05-01',
+    ]);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('no date heading'));
+    warn.mockClear();
+    parseGoogleSitesPage(section('<p> </p>'), 'modern');
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it('skips a section whose heading is not a date, with a warning', () => {
@@ -150,6 +184,51 @@ describe('dated pages', () => {
   });
 });
 
+describe('unstyled "Name: text" lines', () => {
+  const linesOf = (paragraph: string) =>
+    parseGoogleSitesPage(dated('May 1, 2020', paragraph), 'modern')[0]?.lines;
+
+  it('does not turn italic speech into a speaker', () => {
+    expect(linesOf(`<p>${italic('Listen: I am serious.')}</p>`)).toEqual([
+      { speakerLabel: null, text: 'Listen: I am serious.', kind: 'line' },
+    ]);
+  });
+
+  it('does not turn narration into a speaker', () => {
+    expect(linesOf('<p><span>Later that night: he left.</span></p>')).toEqual([
+      { speakerLabel: null, text: 'Later that night: he left.', kind: 'context' },
+    ]);
+    expect(linesOf('<p><span>Meanwhile: he left.</span></p>')?.[0]?.speakerLabel).toBeNull();
+  });
+
+  it('still accepts a short capitalised name', () => {
+    expect(linesOf('<p><span>Mary Jo: hello there</span></p>')).toEqual([
+      { speakerLabel: 'Mary Jo', text: 'hello there', kind: 'line' },
+    ]);
+  });
+});
+
+describe('invisible and decorated lines', () => {
+  const linesOf = (paragraph: string) =>
+    parseGoogleSitesPage(dated('May 1, 2020', paragraph), 'modern')[0]?.lines;
+
+  it('drops paragraphs that hold only zero-width spaces', () => {
+    expect(linesOf('<p><span>\u200b</span></p><p><span>\u200b\ufeff</span></p>')).toEqual([]);
+  });
+
+  it('removes zero-width spaces from real text', () => {
+    expect(linesOf(`<p>${bold('Pat:')} ${italic('hel\u200blo')}</p>`)?.[0]?.text).toBe('hello');
+  });
+
+  it('keeps the speaker for "Pat (whispering)" and exposes the aside', () => {
+    expect(linesOf(`<p>${bold('Pat (whispering):')} ${italic('Shh.')}</p>`)).toEqual([
+      { speakerLabel: 'Pat (whispering)', text: 'Shh.', kind: 'line' },
+    ]);
+    expect(splitAside('Pat (whispering)')).toEqual({ name: 'Pat', aside: 'whispering' });
+    expect(splitAside('Pat')).toEqual({ name: 'Pat', aside: null });
+  });
+});
+
 describe('college pages', () => {
   const college = parseGoogleSitesPage(fixture('college.sample.html'), 'college');
 
@@ -167,6 +246,19 @@ describe('college pages', () => {
 
   it('joins several paragraphs and narration in one entry', () => {
     expect(college[2]?.lines.map((line) => line.kind)).toEqual(['context', 'line', 'line']);
+  });
+});
+
+describe('entry images', () => {
+  it('ignores data URIs and logos before the real photo', () => {
+    const html = dated(
+      'May 1, 2020',
+      '<img src="data:image/gif;base64,R0lGOD"><img src="https://example.com/logo.png">' +
+        '<img src="https://lh3.googleusercontent.com/real">',
+    );
+    expect(parseGoogleSitesPage(html, 'modern')[0]?.imageUrls).toEqual([
+      'https://lh3.googleusercontent.com/real',
+    ]);
   });
 });
 
@@ -202,7 +294,10 @@ describe('isGroupLabel', () => {
     expect(isGroupLabel(label)).toBe(true);
   });
 
-  it.each(['Arob', 'KFed', 'Mary Jo', 'Anderson'])('treats "%s" as one person', (label) => {
-    expect(isGroupLabel(label)).toBe(false);
-  });
+  it.each(['Arob', 'KFed', 'Mary Jo', 'Anderson', 'Pat (whispering)'])(
+    'treats "%s" as one person',
+    (label) => {
+      expect(isGroupLabel(label)).toBe(false);
+    },
+  );
 });

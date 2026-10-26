@@ -1,13 +1,13 @@
 {
   "name": "@aaronisms/web",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc",
+    "typecheck": "next typegen && tsc",
     "test": "vitest run"
   },
   "dependencies": {
@@ -17,14 +17,17 @@
     "@hookform/resolvers": "^6.0.0",
     "@marsidev/react-turnstile": "^1.6.2",
     "@supabase/ssr": "^0.12.7",
-    "@supabase/supabase-js": "^2.118.0",
-    "lucide-react": "^1.59.0",
+    "@supabase/supabase-js": "catalog:",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
+    "lucide-react": "catalog:",
     "next": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-hook-form": "^7.90.0",
     "server-only": "^0.0.1",
-    "sonner": "^2.0.8",
+    "sharp": "catalog:",
+    "sonner": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

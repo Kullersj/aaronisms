@@ -1,6 +1,6 @@
 {
   "name": "@aaronisms/config",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "exports": {
@@ -13,12 +13,11 @@
     "./tsconfig/library.json": "./typescript/library.json"
   },
   "dependencies": {
-    "@eslint/js": "^9.39.0",
-    "@next/eslint-plugin-next": "16.4.2",
+    "@eslint/js": "catalog:",
+    "@next/eslint-plugin-next": "catalog:",
     "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-boundaries": "^7.2.0",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "globals": "^17.0.0",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "typescript-eslint": "^8.71.2"
   },

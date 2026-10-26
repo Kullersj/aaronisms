@@ -97,6 +97,32 @@ describe('importers against the local database', () => {
       expect(await entriesOn(DATES.google)).toHaveLength(2);
     });
 
+    it('imports an entry whose planned slug is held by a different entry', async () => {
+      const taken = { ...plan('taken', ['real imported line']), slug: `${DATES.google}-1` };
+      const holder = await db
+        .from('entries')
+        .insert({ slug: taken.slug, said_on: DATES.google, status: 'pending' })
+        .select('id')
+        .single();
+      expect(holder.error).toBeNull();
+      await db.from('entry_lines').insert({
+        entry_id: holder.data?.id ?? '',
+        position: 1,
+        kind: 'line',
+        text: 'a form submission',
+      });
+
+      const result = await writeToDatabase(db, [taken], new Map(), [], false);
+      expect(result).toMatchObject({ entriesInserted: 1, entriesSkippedExisting: 0 });
+      const rows = await entriesOn(DATES.google);
+      expect(rows.some((row) => row.entry_lines.some((l) => l.text === 'real imported line'))).toBe(
+        true,
+      );
+      expect(rows.find((row) => row.slug === taken.slug)?.entry_lines[0]?.text).toBe(
+        'a form submission',
+      );
+    });
+
     it('recreates a leftover entry that has no lines', async () => {
       const leftover = plan('leftover', ['rebuilt line']);
       const inserted = await db

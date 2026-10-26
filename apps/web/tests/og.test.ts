@@ -1,19 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { Entry } from '@aaronisms/db/schemas';
 import { ogContent, truncateText } from '@/features/entries/og';
+import { makeEntry } from './factories';
 
 function entryWith(lines: Array<{ kind: 'line' | 'stage' | 'context'; text: string }>): Entry {
-  return {
+  return makeEntry({
     id: 'e',
     slug: 'e',
     saidOn: '2026-01-01',
-    era: 'modern',
-    status: 'published',
-    imagePath: null,
-    imageAlt: null,
-    noPreview: false,
-    publishedAt: null,
-    createdAt: '2026-01-01T00:00:00+00:00',
     lines: lines.map((line, i) => ({
       id: `l${i}`,
       position: i + 1,
@@ -22,7 +16,7 @@ function entryWith(lines: Array<{ kind: 'line' | 'stage' | 'context'; text: stri
       speakerLabel: null,
       text: line.text,
     })),
-  };
+  });
 }
 
 describe('truncateText', () => {
