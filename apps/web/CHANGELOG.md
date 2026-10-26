@@ -1,5 +1,18 @@
 # @aaronisms/web
 
+## 0.8.0
+
+### Minor Changes
+
+- e952420: Speaker points: speakers earn 10 points per published Aaronism they are in, 1 per line they say, and 25 per published Aaronism they submitted under their own name. The Speakers page ranks them by points (with an A to Z toggle), and each speaker page shows their points, rank and who they need to pass next. Admins can correct an entry's submitter on its edit page.
+
+### Patch Changes
+
+- 5935d79: Two submissions adding the same new speaker at the same moment no longer fail one of them with a duplicate-name error.
+- Updated dependencies [e952420]
+  - @aaronisms/db@0.5.0
+  - @aaronisms/email@0.2.1
+
 ## 0.7.3
 
 ### Patch Changes
