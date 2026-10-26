@@ -24,7 +24,7 @@ export async function waitForMagicLink(to: string, known: Set<string>): Promise<
         const latest = (await signInEmails(to)).find((message) => !known.has(message.ID));
         if (!latest) return undefined;
         const message = await getMessage(latest.ID);
-        link = /https?:\/\/\S+\/auth\/v1\/verify\S+/.exec(message.Text)?.[0];
+        link = /https?:\/\/\S+\/auth\/confirm\?\S+/.exec(message.Text)?.[0];
         return link;
       },
       { message: `no sign-in email to ${to}`, timeout: 15_000 },
