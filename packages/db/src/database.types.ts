@@ -59,6 +59,12 @@ isOneToOne: false
       foreignKeyName: "entry_lines_speaker_id_fkey"
       columns: ["speaker_id"]
 isOneToOne: false
+      referencedRelation: "speaker_points"
+      referencedColumns: ["speaker_id"]
+    },{
+      foreignKeyName: "entry_lines_speaker_id_fkey"
+      columns: ["speaker_id"]
+isOneToOne: false
       referencedRelation: "speakers"
       referencedColumns: ["id"]
     }
@@ -128,7 +134,15 @@ isOneToOne: false
                 }
           }
           Views: {
-            [_ in never]: never
+            "speaker_points": {
+                  Row: {
+                    "entry_count": number | null,"line_count": number | null,"points": number | null,"punchline_count": number | null,"speaker_id": string | null
+                  }
+                  ComputedFields: never
+                  Relationships: [
+                    
+                  ]
+                }
           }
           Functions: {
             "apply_decision":

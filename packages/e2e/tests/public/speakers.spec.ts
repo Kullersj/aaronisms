@@ -25,6 +25,38 @@ test.describe('speakers', () => {
     await expect(speakers.indexLink(sam.name)).toContainText('1 line');
   });
 
+  test('the index ranks speakers by points, and A to Z drops the ranks', async ({ page }) => {
+    const speakers = new SpeakerPage(page);
+    await expect(speakers.sortLink('By points')).toHaveAttribute('aria-current', 'true');
+    await expect(speakers.indexLink(testAaron.name)).toContainText(
+      `#1${testAaron.name}${testAaron.points} points`,
+    );
+    await expect(speakers.indexLink(sam.name)).toContainText(`${sam.points} points`);
+    await expect(speakers.indexLink(pat.name)).toContainText(`${pat.points} points`);
+
+    await speakers.sortLink('A to Z').click();
+    await expect(page).toHaveURL(/\/speakers\?sort=name$/);
+    await expect(speakers.sortLink('A to Z')).toHaveAttribute('aria-current', 'true');
+    await expect(speakers.indexLink(testAaron.name)).not.toContainText('#');
+  });
+
+  test('a speaker page shows their points, rank and who to pass next', async ({ page }) => {
+    const speakers = new SpeakerPage(page);
+    await speakers.indexLink(testAaron.name).click();
+    await expect(speakers.standing).toHaveText(
+      new RegExp(`^${testAaron.points} points, #1 of \\d+\\. Top of the leaderboard\\.$`),
+    );
+
+    await speakers.allSpeakers.click();
+    await speakers.indexLink(pat.name).click();
+    await expect(speakers.standing).toHaveText(
+      new RegExp(`^${pat.points} points, #\\d+ of \\d+\\. \\d+ more to pass .+\\.$`),
+    );
+    await speakers.standing.getByRole('link').click();
+    await expect(page).toHaveURL(/\/speakers\/[a-z0-9-]+$/);
+    await expect(speakers.standing).toBeVisible();
+  });
+
   test('a speaker page lists their entries, newest first, with a count', async ({ page }) => {
     const speakers = new SpeakerPage(page);
     await speakers.indexLink(testAaron.name).click();

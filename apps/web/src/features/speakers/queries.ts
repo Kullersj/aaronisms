@@ -23,22 +23,35 @@ export async function getSpeakerSummaries(): Promise<SpeakerSummary[]> {
   }));
 }
 
-export type PublicSpeaker = { id: string; name: string; slug: string; lineCount: number };
+export type PublicSpeaker = {
+  id: string;
+  name: string;
+  slug: string;
+  lineCount: number;
+  points: number;
+};
 
 const cacheOptions = { tags: [ENTRIES_TAG], revalidate: 3600 };
 
 /**
- * Speakers with at least one line in a published entry, with their line counts, by name.
+ * Speakers with at least one line in a published entry, with their line counts and points, by name.
  * Anon client: RLS only lets it see lines of published entries, so the counts are public ones.
  */
 export async function fetchPublicSpeakers(): Promise<PublicSpeaker[]> {
-  const { data, error } = await createAnonClient()
-    .from('speakers')
-    .select('id, name, slug, lines:entry_lines(count)')
-    .order('name');
-  if (error) throw new Error(`Could not load speakers: ${error.message}`);
-  return data
-    .map(({ lines, ...speaker }) => ({ ...speaker, lineCount: lines[0]?.count ?? 0 }))
+  const client = createAnonClient();
+  const [speakers, scores] = await Promise.all([
+    client.from('speakers').select('id, name, slug, lines:entry_lines(count)').order('name'),
+    client.from('speaker_points').select('speaker_id, points'),
+  ]);
+  if (speakers.error) throw new Error(`Could not load speakers: ${speakers.error.message}`);
+  if (scores.error) throw new Error(`Could not load speaker points: ${scores.error.message}`);
+  const points = new Map(scores.data.map((score) => [score.speaker_id, score.points]));
+  return speakers.data
+    .map(({ lines, ...speaker }) => ({
+      ...speaker,
+      lineCount: lines[0]?.count ?? 0,
+      points: points.get(speaker.id) ?? 0,
+    }))
     .filter((speaker) => speaker.lineCount > 0);
 }
 
@@ -48,7 +61,7 @@ export const getPublicSpeakers = unstable_cache(
   cacheOptions,
 );
 
-export type SpeakerPage = { speaker: PublicSpeaker; entries: Entry[] };
+export type SpeakerPage = { speaker: Omit<PublicSpeaker, 'points'>; entries: Entry[] };
 
 /**
  * One speaker with every published entry they have a line in, newest first. Null when the

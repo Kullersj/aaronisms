@@ -95,6 +95,22 @@ describe('row-level security (anon)', () => {
     expect(speakers.data).toHaveLength(1);
   });
 
+  it('scores speaker points from published entries only', async () => {
+    const { data, error } = await anon
+      .from('speaker_points')
+      .select('entry_count, line_count, punchline_count, points')
+      .eq('speaker_id', ids.speaker);
+    expect(error).toBeNull();
+    // One published entry with one line, which is also its last: 10 + 1 + 5. The pending and
+    // rejected lines are not counted.
+    expect(data).toEqual([{ entry_count: 1, line_count: 1, punchline_count: 1, points: 16 }]);
+  });
+
+  it('cannot write speaker points', async () => {
+    const insert = await anon.from('speaker_points').insert({ speaker_id: ids.speaker, points: 1 });
+    expect(insert.error).not.toBeNull();
+  });
+
   it('cannot read private entry columns', async () => {
     expect((await anon.from('entries').select('submitter_ip')).error).not.toBeNull();
     expect((await anon.from('entries').select('submitted_by')).error).not.toBeNull();
