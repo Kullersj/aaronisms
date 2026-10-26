@@ -30,8 +30,8 @@ export default async function SpeakersPage({ searchParams }: PageProps) {
             </SortLink>
           </nav>
           <p className="text-muted-foreground text-sm">
-            Speakers earn {POINTS.entry} points for each Aaronism they are in, {POINTS.line} for
-            each line, and {POINTS.punchline} more for having the last word.
+            Speakers earn {POINTS.entry} points for each Aaronism they are in and {POINTS.line} for
+            each line they say.
           </p>
           <SpeakerList speakers={speakers} showRank={!byName} />
         </>

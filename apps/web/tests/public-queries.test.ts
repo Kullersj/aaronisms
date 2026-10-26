@@ -110,10 +110,10 @@ describe('speaker queries (real database, anon role)', () => {
       .filter((s) => s.slug.startsWith(PREFIX))
       .sort((a, b) => a.slug.localeCompare(b.slug));
     expect(mine.map((s) => [s.slug, s.lineCount, s.points])).toEqual([
-      // The line on the pending entry is not counted. A: 2 entries, 2 lines, the last word in
-      // one of them (20 + 2 + 5). B: 1 entry, 1 line, the last word (10 + 1 + 5).
-      [speakerA.slug, 2, 27],
-      [speakerB.slug, 1, 16],
+      // The line on the pending entry is not counted. A: 2 entries, 2 lines (20 + 2).
+      // B: 1 entry, 1 line (10 + 1).
+      [speakerA.slug, 2, 22],
+      [speakerB.slug, 1, 11],
     ]);
   });
 

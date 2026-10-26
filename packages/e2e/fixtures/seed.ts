@@ -41,11 +41,10 @@ export const SEED = {
   /** Slugs of every published entry. */
   publishedSlugs: ['2026-01-05-1', '2026-01-05-2', '2026-02-14-1', 'college-1'],
   speakers: {
-    // Points: 10 per Aaronism, 1 per line, 5 per last word. The pumpkin's last word is "Everyone
-    // else", who is not a speaker.
-    testAaron: { name: 'Test Aaron', slug: 'test-aaron', lines: 3, aaronisms: 3, points: 43 },
+    // Points: 10 per Aaronism and 1 per line.
+    testAaron: { name: 'Test Aaron', slug: 'test-aaron', lines: 3, aaronisms: 3, points: 33 },
     pat: { name: 'Pat Example', slug: 'pat-example', lines: 1, points: 11 },
-    sam: { name: 'Sam Sample', slug: 'sam-sample', lines: 1, points: 16 },
+    sam: { name: 'Sam Sample', slug: 'sam-sample', lines: 1, points: 11 },
   },
   meme: { caption: 'A made-up meme caption' },
 } as const;
