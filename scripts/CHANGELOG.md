@@ -1,5 +1,12 @@
 # @aaronisms/scripts
 
+## 0.2.6
+
+### Patch Changes
+
+- Updated dependencies [d4911c7]
+  - @aaronisms/db@0.5.1
+
 ## 0.2.5
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # @aaronisms/web
 
+## 0.8.1
+
+### Patch Changes
+
+- d4911c7: Make admin sign-in links work in any browser or device, so two moderators can sign in at the same time and a link opened on a phone or in a mail app works. The email now links to `/auth/confirm` with a token hash instead of a PKCE code that only the asking browser could use. The hosted Supabase project needs the new Magic Link email template (see `docs/launch.md`).
+- Updated dependencies [d4911c7]
+  - @aaronisms/db@0.5.1
+  - @aaronisms/email@0.2.1
+
 ## 0.8.0
 
 ### Minor Changes
