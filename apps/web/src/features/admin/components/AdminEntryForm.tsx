@@ -25,6 +25,7 @@ export type AdminEntryFormProps = {
   status: EntryStatus;
   imageUrl: string | null;
   imageAlt: string | null;
+  submittedBy: string | null;
   speakers: string[];
 };
 
@@ -36,12 +37,14 @@ export function AdminEntryForm({
   status,
   imageUrl,
   imageAlt,
+  submittedBy: initialSubmittedBy,
   speakers,
 }: AdminEntryFormProps) {
   const router = useRouter();
   const form = useForm({ resolver: zodResolver(entryEditSchema), defaultValues: initial });
   const [newStatus, setNewStatus] = useState(status);
   const [alt, setAlt] = useState(imageAlt ?? '');
+  const [submittedBy, setSubmittedBy] = useState(initialSubmittedBy ?? '');
   const [photo, setPhoto] = useState<File>();
   const [fileKey, setFileKey] = useState(0);
   const [removeImage, setRemoveImage] = useState(false);
@@ -56,6 +59,7 @@ export function AdminEntryForm({
         status: newStatus,
         expectedStatus: status,
         imageAlt: alt,
+        submittedBy,
         removeImage,
         intent,
       }),
@@ -120,6 +124,25 @@ export function AdminEntryForm({
           ) : null}
           <Label htmlFor="imageAlt">Photo description (alt text)</Label>
           <Input id="imageAlt" value={alt} onChange={(event) => setAlt(event.target.value)} />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="submittedBy">Submitted by</Label>
+          <Input
+            id="submittedBy"
+            list="submitter-speakers"
+            maxLength={80}
+            value={submittedBy}
+            onChange={(event) => setSubmittedBy(event.target.value)}
+          />
+          <datalist id="submitter-speakers">
+            {speakers.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
+          <p className="text-muted-foreground text-sm">
+            Use their speaker name to give them submitter points. Leave blank if unknown.
+          </p>
         </div>
 
         {pending ? null : (
