@@ -41,7 +41,7 @@ export async function fetchPublicSpeakers(): Promise<PublicSpeaker[]> {
   const client = createAnonClient();
   const [speakers, scores] = await Promise.all([
     client.from('speakers').select('id, name, slug, lines:entry_lines(count)').order('name'),
-    client.from('speaker_points').select('speaker_id, points'),
+    client.rpc('speaker_points'),
   ]);
   if (speakers.error) throw new Error(`Could not load speakers: ${speakers.error.message}`);
   if (scores.error) throw new Error(`Could not load speaker points: ${scores.error.message}`);

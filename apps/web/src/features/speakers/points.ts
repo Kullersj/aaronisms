@@ -1,5 +1,5 @@
-/** Points a speaker earns, worked out by the `speaker_points` view. Kept here for the help text. */
-export const POINTS = { entry: 10, line: 1 } as const;
+/** Points a speaker earns, worked out by the `speaker_points` function. Kept here for the help text. */
+export const POINTS = { entry: 10, line: 1, submitted: 25 } as const;
 
 export type Scored = { id: string; name: string; points: number };
 

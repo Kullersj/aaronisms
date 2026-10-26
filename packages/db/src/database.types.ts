@@ -128,21 +128,7 @@ isOneToOne: false
                 }
           }
           Views: {
-            "speaker_points": {
-                  Row: {
-                    "entry_count": number | null,"line_count": number | null,"points": number | null,"speaker_id": string | null
-                  }
-                  ComputedFields: never
-                  Relationships: [
-                    {
-      foreignKeyName: "entry_lines_speaker_id_fkey"
-      columns: ["speaker_id"]
-isOneToOne: false
-      referencedRelation: "speakers"
-      referencedColumns: ["id"]
-    }
-                  ]
-                }
+            [_ in never]: never
           }
           Functions: {
             "apply_decision":
@@ -210,6 +196,11 @@ isOneToOne: false
 "search_entries":
 { Args: { "q": string }; Returns: {
               "era": Database["public"]['Enums']["entry_era"],"id": string,"image_alt": string,"image_path": string,"published_at": string,"rank": number,"said_on": string,"slug": string
+            }[]
+                           },
+"speaker_points":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "entry_count": number,"line_count": number,"points": number,"speaker_id": string,"submitted_count": number
             }[]
                            }
           }

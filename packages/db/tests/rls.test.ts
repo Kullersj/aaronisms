@@ -37,6 +37,7 @@ describe('row-level security (anon)', () => {
       status,
       published_at: status === 'published' ? '2026-01-02T00:00:00Z' : null,
       submitter_ip: '203.0.113.9',
+      submitted_by: 'RLS Test', // the speaker's slug, so it earns them submitter points
     }));
     expect((await admin.from('entries').insert(entries)).error).toBeNull();
     const lines = (['published', 'pending', 'rejected'] as const).map((status) => ({
@@ -96,18 +97,13 @@ describe('row-level security (anon)', () => {
   });
 
   it('scores speaker points from published entries only', async () => {
-    const { data, error } = await anon
-      .from('speaker_points')
-      .select('entry_count, line_count, points')
-      .eq('speaker_id', ids.speaker);
+    const { data, error } = await anon.rpc('speaker_points').eq('speaker_id', ids.speaker);
     expect(error).toBeNull();
-    // One published entry with one line: 10 + 1. The pending and rejected lines are not counted.
-    expect(data).toEqual([{ entry_count: 1, line_count: 1, points: 11 }]);
-  });
-
-  it('cannot write speaker points', async () => {
-    const remove = await anon.from('speaker_points').delete().eq('speaker_id', ids.speaker);
-    expect(remove.error).not.toBeNull();
+    // One published entry with one line, submitted under their name: 10 + 1 + 25. The pending and
+    // rejected entries, which they also spoke in and submitted, are not counted.
+    expect(data).toEqual([
+      { speaker_id: ids.speaker, entry_count: 1, line_count: 1, submitted_count: 1, points: 36 },
+    ]);
   });
 
   it('cannot read private entry columns', async () => {
