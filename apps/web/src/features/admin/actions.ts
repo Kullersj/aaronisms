@@ -15,7 +15,7 @@ import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { movePhoto, removePhoto, storePhoto } from '@/lib/supabase/photos';
 import { createSessionClient } from '@/lib/supabase/session';
-import { adminMessageUrl } from './messages';
+import { adminMessageUrl, signInRateLimitMessage } from './messages';
 import { adminEntrySchema } from './schema';
 
 export type LoginState = { message: string } | null;
@@ -48,9 +48,9 @@ export async function requestMagicLink(
       email,
       options: { emailRedirectTo: `${env.siteUrl}/auth/callback`, shouldCreateUser: false },
     });
-    // Supabase limits how often it sends auth email; say so rather than suggest an instant retry.
+    // Supabase limits how often it sends auth email; say how long to wait rather than just "later".
     if (error?.code === 'over_email_send_rate_limit') {
-      return { message: 'Too many sign-in emails were sent recently. Please try again later.' };
+      return { message: signInRateLimitMessage(error.message) };
     }
     if (error) return { message: 'We could not send the link. Please try again.' };
   }
