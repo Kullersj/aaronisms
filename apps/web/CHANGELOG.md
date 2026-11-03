@@ -1,5 +1,11 @@
 # @aaronisms/web
 
+## 0.8.2
+
+### Patch Changes
+
+- 90bcf88: The admin sign-in form now says how many seconds to wait when a link was just sent to that address, instead of a vague "try again later".
+
 ## 0.8.1
 
 ### Patch Changes
