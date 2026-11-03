@@ -28,3 +28,18 @@ export function adminMessage(code: string | string[] | undefined): string | unde
     ? ADMIN_MESSAGES[value as AdminMessageCode]
     : undefined;
 }
+
+/**
+ * What to tell someone whose magic-link request Supabase refused for sending email too often.
+ * Supabase allows one link per address a minute and says how long is left ("you can only request
+ * this after 17 seconds"); pass that wait on so a short pause does not read as a lockout.
+ */
+export function signInRateLimitMessage(supabaseMessage: string): string {
+  const seconds = Number(/after (\d+) seconds?/i.exec(supabaseMessage)?.[1]);
+  if (seconds > 0) {
+    return `A sign-in link was just sent to that address. Check your email, or wait ${seconds} ${
+      seconds === 1 ? 'second' : 'seconds'
+    } to request another.`;
+  }
+  return 'Too many sign-in emails were sent recently. Please try again in a few minutes.';
+}
