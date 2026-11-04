@@ -1,5 +1,11 @@
 # @aaronisms/web
 
+## 0.8.3
+
+### Patch Changes
+
+- e71e32c: Upgrade Next.js to 16.4.5 for the November 2026 security release.
+
 ## 0.8.2
 
 ### Patch Changes
